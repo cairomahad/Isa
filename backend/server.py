@@ -1318,6 +1318,146 @@ async def get_reviews_today(user_id: str = Query(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ========== ADMIN LESSONS MANAGEMENT ==========
+class CreateLessonRequest(BaseModel):
+    title: str
+    description: Optional[str] = ""
+    category: str  # fard, hanafi, arabic, family
+    video_file_id: Optional[str] = None
+    audio_file_id: Optional[str] = None
+    pdf_file_id: Optional[str] = None
+    duration: Optional[str] = None
+
+class UpdateLessonRequest(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    video_file_id: Optional[str] = None
+    audio_file_id: Optional[str] = None
+    pdf_file_id: Optional[str] = None
+    duration: Optional[str] = None
+
+@api_router.get("/admin/lessons")
+async def get_all_lessons_admin():
+    """Get all lessons for admin management"""
+    try:
+        response = supabase.table('video_lessons').select('*').order('category, id').execute()
+        
+        lessons = []
+        for lesson in (response.data or []):
+            lessons.append({
+                'id': str(lesson.get('id', '')),
+                'title': lesson.get('title', ''),
+                'description': lesson.get('description', ''),
+                'category': lesson.get('category', ''),
+                'video_file_id': lesson.get('file_id'),
+                'audio_file_id': lesson.get('audio_file_id'),
+                'pdf_file_id': lesson.get('pdf_file_id'),
+                'duration': lesson.get('duration'),
+                'created_at': lesson.get('created_at', ''),
+            })
+        
+        return {"lessons": lessons}
+        
+    except Exception as e:
+        logger.error(f"Error fetching lessons for admin: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/admin/lessons")
+async def create_lesson(request: CreateLessonRequest):
+    """Create a new lesson"""
+    try:
+        lesson_data = {
+            'title': request.title,
+            'description': request.description,
+            'category': request.category,
+            'file_id': request.video_file_id,
+            'audio_file_id': request.audio_file_id,
+            'pdf_file_id': request.pdf_file_id,
+            'file_type': 'video' if request.video_file_id else 'text',
+            'file_name': request.title,
+            'created_at': datetime.now().isoformat(),
+        }
+        
+        response = supabase.table('video_lessons').insert(lesson_data).execute()
+        
+        if not response.data or len(response.data) == 0:
+            raise HTTPException(status_code=500, detail="Failed to create lesson")
+        
+        return {
+            "success": True,
+            "message": "Урок успешно создан",
+            "lesson_id": str(response.data[0].get('id', '')),
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating lesson: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.put("/admin/lessons/{lesson_id}")
+async def update_lesson(lesson_id: str, request: UpdateLessonRequest):
+    """Update an existing lesson"""
+    try:
+        update_data = {}
+        
+        if request.title is not None:
+            update_data['title'] = request.title
+        if request.description is not None:
+            update_data['description'] = request.description
+        if request.category is not None:
+            update_data['category'] = request.category
+        if request.video_file_id is not None:
+            update_data['file_id'] = request.video_file_id
+        if request.audio_file_id is not None:
+            update_data['audio_file_id'] = request.audio_file_id
+        if request.pdf_file_id is not None:
+            update_data['pdf_file_id'] = request.pdf_file_id
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No fields to update")
+        
+        response = supabase.table('video_lessons').update(update_data).eq('id', lesson_id).execute()
+        
+        if not response.data or len(response.data) == 0:
+            raise HTTPException(status_code=404, detail="Lesson not found")
+        
+        return {
+            "success": True,
+            "message": "Урок успешно обновлен",
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating lesson: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.delete("/admin/lessons/{lesson_id}")
+async def delete_lesson(lesson_id: str):
+    """Delete a lesson"""
+    try:
+        response = supabase.table('video_lessons').delete().eq('id', lesson_id).execute()
+        
+        if not response.data or len(response.data) == 0:
+            raise HTTPException(status_code=404, detail="Lesson not found")
+        
+        return {
+            "success": True,
+            "message": "Урок успешно удален",
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting lesson: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
