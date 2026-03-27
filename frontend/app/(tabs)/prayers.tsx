@@ -81,7 +81,7 @@ export default function PrayersScreen() {
       }
 
       // Call our Backend API
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://cli-app-runner.preview.emergentagent.com';
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://tazakkur-islamic.preview.emergentagent.com';
       const citySlug = city.slug || 'moscow'; // Используем slug из cities
       const url = `${backendUrl}/api/prayer-times?city=${citySlug}`;
       
