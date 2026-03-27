@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -8,6 +8,8 @@ export default function RootLayout() {
   const { session, setSession, setUser, setCity, setLoading } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
+  const navigationState = useRootNavigationState();
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     // Load saved city
@@ -77,7 +79,17 @@ export default function RootLayout() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Wait for navigation to be ready
   useEffect(() => {
+    if (navigationState?.key && !isReady) {
+      setIsReady(true);
+    }
+  }, [navigationState?.key]);
+
+  // Handle navigation redirects only after layout is mounted
+  useEffect(() => {
+    if (!isReady) return;
+
     const inAuthGroup = segments[0] === '(auth)';
     const inAdminGroup = segments[0] === 'admin';
     if (inAdminGroup) return;
@@ -87,7 +99,7 @@ export default function RootLayout() {
     } else if (session && inAuthGroup) {
       router.replace('/(tabs)');
     }
-  }, [session, segments]);
+  }, [session, segments, isReady]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
