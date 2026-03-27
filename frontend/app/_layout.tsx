@@ -5,7 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function RootLayout() {
-  const { session, setSession, setUser, setCity } = useAuthStore();
+  const { session, setSession, setUser, setCity, setLoading } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
 
@@ -15,15 +15,53 @@ export default function RootLayout() {
       if (city) setCity(city);
     });
 
+    // Check for local UUID fallback (when anonymous auth is disabled)
+    const checkLocalAuth = async () => {
+      const localId = await AsyncStorage.getItem('local_user_id');
+      if (localId) {
+        // Try to load user from Supabase
+        const { data } = await supabase
+          .from('users')
+          .select('*')
+          .eq('app_user_id', localId)
+          .single();
+        if (data) {
+          setUser(data);
+          setSession({ user: { id: localId } } as any);
+          if (data.city) setCity(data.city);
+        }
+      }
+    };
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+      if (session) {
+        setSession(session);
+        // Load user data
+        supabase
+          .from('users')
+          .select('*')
+          .eq('app_user_id', session.user.id)
+          .single()
+          .then(({ data }) => {
+            if (data) {
+              setUser(data);
+              if (data.city) setCity(data.city);
+            }
+          });
+      } else {
+        // No Supabase session - check local fallback
+        checkLocalAuth().then(() => {
+          // Done checking - mark loading complete (don't reset session if set by welcome screen)
+          setLoading(false);
+        });
+      }
     });
 
     // Listen to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      if (session?.user) {
+      if (session) {
+        setSession(session);
         const { data } = await supabase
           .from('users')
           .select('*')

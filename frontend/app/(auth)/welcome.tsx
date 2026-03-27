@@ -6,9 +6,18 @@ import {
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { Colors } from '../../constants/colors';
+
+// Simple UUID v4 generator (no external dependency)
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
 
 export default function WelcomeScreen() {
   const [name, setName] = useState('');
@@ -25,11 +34,54 @@ export default function WelcomeScreen() {
 
     setLoading(true);
     try {
-      // Anonymous sign-in
-      const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
-      if (authError) throw authError;
+      let userId: string;
+      let isFirstTime = false;
 
-      const userId = authData.user!.id;
+      // Try Supabase anonymous sign-in
+      const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
+      
+      if (authError) {
+        // Fallback: use local UUID (if anonymous sign-ins are disabled in Supabase)
+        console.warn('Anonymous auth failed, using local UUID fallback:', authError.message);
+        let localId = await AsyncStorage.getItem('local_user_id');
+        if (!localId) {
+          localId = generateUUID();
+          await AsyncStorage.setItem('local_user_id', localId);
+          isFirstTime = true;
+        }
+        userId = localId;
+
+        // Try to find existing user by local ID
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('*')
+          .eq('app_user_id', userId)
+          .single();
+
+        if (existingUser) {
+          setUser(existingUser);
+          // Create a mock session
+          const mockSession = { user: { id: userId } } as any;
+          setSession(mockSession);
+          router.replace('/(tabs)');
+          return;
+        }
+
+        // Create new user
+        const { data: newUser } = await supabase
+          .from('users')
+          .insert([{ display_name: trimmed, app_user_id: userId, points: 0, city: 'Москва', notifications_enabled: true }])
+          .select()
+          .single();
+
+        setUser(newUser || { id: userId, display_name: trimmed, points: 0, city: 'Москва' });
+        const mockSession = { user: { id: userId } } as any;
+        setSession(mockSession);
+        router.replace('/(auth)/onboarding');
+        return;
+      }
+
+      userId = authData.user!.id;
 
       // Check if user already exists
       const { data: existingUser } = await supabase
@@ -59,7 +111,6 @@ export default function WelcomeScreen() {
         .single();
 
       if (insertError) {
-        // Maybe RLS issue - still proceed with session
         console.warn('Insert error:', insertError.message);
       }
 
