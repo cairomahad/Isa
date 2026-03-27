@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
-import { Colors } from '../../constants/colors';
+import { Colors, Shadows } from '../../constants/colors';
 
 // Simple UUID v4 generator (no external dependency)
 function generateUUID(): string {
