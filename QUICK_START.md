@@ -109,4 +109,3 @@ sudo supervisorctl restart expo     # Если нужно обновить front
 
 **Начинай с Backend API в `/app/backend/server.py`**
 
-Полная документация: `/app/HANDOFF_PROMPT.md`
