@@ -5,6 +5,8 @@ export type AppUser = {
   id: string;
   display_name: string;
   points: number;
+  phone?: string;
+  role?: string;
   city?: string;
   is_admin?: boolean;
   notifications_enabled?: boolean;

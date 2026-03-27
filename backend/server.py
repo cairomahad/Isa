@@ -86,6 +86,40 @@ class LoginResponse(BaseModel):
     role: str
     points: int
 
+# Lesson Models
+class Lesson(BaseModel):
+    id: str
+    title: str
+    description: Optional[str] = ""
+    video_url: Optional[str] = None
+    audio_url: Optional[str] = None
+    pdf_url: Optional[str] = None
+    course_type: str
+    order_num: int
+    is_locked: bool
+    duration: Optional[str] = None
+    unlock_date: Optional[str] = None
+
+class CourseGroup(BaseModel):
+    type: str
+    label: str
+    emoji: str
+    lessons: List[Lesson]
+    completed: int
+    total: int
+    progress: int
+
+class CoursesResponse(BaseModel):
+    courses: List[CourseGroup]
+
+class CompleteLessonRequest(BaseModel):
+    user_id: str
+
+class CompleteLessonResponse(BaseModel):
+    success: bool
+    points_earned: int
+    next_unlock_date: Optional[str] = None
+
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
 async def root():
@@ -298,8 +332,11 @@ async def login(request: LoginRequest):
         if user.get('password') != request.password:
             raise HTTPException(status_code=401, detail="Неверный телефон или пароль")
         
-        # Определяем роль
-        role = user.get('role', 'student')
+        # Определяем роль: из БД или fallback по phone
+        role = user.get('role')
+        if role is None:
+            # Временная проверка, пока поле role не добавлено в БД
+            role = 'admin' if user.get('phone') == 'admin' else 'student'
         
         return LoginResponse(
             user_id=str(user.get('id', '')),
@@ -314,6 +351,285 @@ async def login(request: LoginRequest):
     except Exception as e:
         logger.error(f"Login error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== LESSONS API ==========
+COURSE_CONFIG = {
+    'fard': {'label': 'Шафиитский мазхаб', 'emoji': '📘', 'description': 'Обязательные знания'},
+    'hanafi': {'label': 'Ханафитский мазхаб', 'emoji': '📗', 'description': 'Обязательные знания'},
+    'arabic': {'label': 'Арабский язык', 'emoji': '🔤', 'description': 'Открывается после основных знаний'},
+    'family': {'label': 'Семейные отношения', 'emoji': '🏠', 'description': 'Открывается после основных знаний'},
+}
+
+@api_router.get("/lessons", response_model=CoursesResponse)
+async def get_lessons(user_id: str = Query(..., description="User ID")):
+    """Get all lessons with unlock logic for user"""
+    try:
+        # Fetch all video lessons from Supabase
+        lessons_response = supabase.table('video_lessons').select('*').order('category, id').execute()
+        
+        if not lessons_response.data:
+            logger.info("No lessons found in database")
+            return CoursesResponse(courses=[])
+        
+        all_lessons = lessons_response.data
+        
+        # Fetch user info to get telegram_id if needed
+        user_response = supabase.table('users').select('id, telegram_id').eq('id', user_id).execute()
+        telegram_id = None
+        if user_response.data and len(user_response.data) > 0:
+            telegram_id = user_response.data[0].get('telegram_id')
+        
+        # Fetch user's course progress
+        user_progress = {}
+        if telegram_id:
+            progress_response = supabase.table('course_progress').select('*').eq('telegram_id', telegram_id).execute()
+            for p in (progress_response.data or []):
+                category = p.get('category', '')
+                user_progress[category] = p
+        
+        # Group lessons by category (course_type)
+        courses_dict: Dict[str, List[Dict]] = {}
+        for lesson_data in all_lessons:
+            category = lesson_data.get('category', 'fard')
+            if category not in courses_dict:
+                courses_dict[category] = []
+            courses_dict[category].append(lesson_data)
+        
+        # Build course groups with unlock logic
+        course_groups = []
+        
+        for category, lessons_list in courses_dict.items():
+            config = COURSE_CONFIG.get(category, {'label': category, 'emoji': '📚', 'description': ''})
+            
+            # Sort by id (acts as order)
+            lessons_list.sort(key=lambda x: x.get('id', 0))
+            
+            # Get progress for this category
+            category_progress = user_progress.get(category, {})
+            current_lesson_num = category_progress.get('current_lesson', 1)
+            last_sent_at = category_progress.get('last_sent_at')
+            
+            completed_count = max(0, current_lesson_num - 1)
+            formatted_lessons = []
+            
+            for idx, lesson_data in enumerate(lessons_list):
+                lesson_id = str(lesson_data.get('id', ''))
+                lesson_num = idx + 1
+                
+                # Determine if lesson is completed or locked
+                is_completed = lesson_num < current_lesson_num
+                is_locked = False
+                unlock_date = None
+                
+                if lesson_num == 1:
+                    # First lesson always unlocked
+                    is_locked = False
+                elif lesson_num == current_lesson_num:
+                    # Current lesson - check 3-day wait if not first
+                    if last_sent_at and lesson_num > 1:
+                        if isinstance(last_sent_at, str):
+                            last_datetime = datetime.fromisoformat(last_sent_at.replace('Z', '+00:00'))
+                        else:
+                            last_datetime = last_sent_at
+                        
+                        unlock_datetime = last_datetime + timedelta(days=3)
+                        
+                        if datetime.now() < unlock_datetime:
+                            is_locked = True
+                            unlock_date = unlock_datetime.strftime('%Y-%m-%d')
+                        else:
+                            is_locked = False
+                    else:
+                        is_locked = False
+                elif lesson_num > current_lesson_num:
+                    # Future lessons are locked
+                    is_locked = True
+                
+                # Build file URLs from Telegram file IDs (they need to be converted or shown as is)
+                # For now, we'll keep them as file_ids
+                file_id = lesson_data.get('file_id')
+                audio_file_id = lesson_data.get('audio_file_id')
+                pdf_file_id = lesson_data.get('pdf_file_id')
+                
+                formatted_lesson = Lesson(
+                    id=lesson_id,
+                    title=lesson_data.get('title', 'Untitled'),
+                    description=lesson_data.get('description', ''),
+                    video_url=file_id,  # Telegram file_id for video
+                    audio_url=audio_file_id,  # Telegram file_id for audio
+                    pdf_url=pdf_file_id,  # Telegram file_id for PDF
+                    course_type=category,
+                    order_num=lesson_num,
+                    is_locked=is_locked,
+                    duration=None,  # Not available in current schema
+                    unlock_date=unlock_date,
+                )
+                formatted_lessons.append(formatted_lesson)
+            
+            # Calculate progress percentage
+            total = len(lessons_list)
+            progress_percent = int((completed_count / total * 100)) if total > 0 else 0
+            
+            course_group = CourseGroup(
+                type=category,
+                label=config['label'],
+                emoji=config['emoji'],
+                lessons=formatted_lessons,
+                completed=completed_count,
+                total=total,
+                progress=progress_percent,
+            )
+            course_groups.append(course_group)
+        
+        # Sort: basic courses first (fard, hanafi), then advanced
+        course_groups.sort(key=lambda c: (c.type in ['arabic', 'family'], c.type))
+        
+        return CoursesResponse(courses=course_groups)
+        
+    except Exception as e:
+        logger.error(f"Error fetching lessons: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/lesson/{lesson_id}")
+async def get_lesson_detail(lesson_id: str, user_id: str = Query(...)):
+    """Get detailed information for a specific lesson"""
+    try:
+        response = supabase.table('video_lessons').select('*').eq('id', lesson_id).execute()
+        
+        if not response.data or len(response.data) == 0:
+            raise HTTPException(status_code=404, detail="Lesson not found")
+        
+        lesson_data = response.data[0]
+        
+        # Get user's telegram_id
+        user_response = supabase.table('users').select('telegram_id').eq('id', user_id).execute()
+        telegram_id = None
+        if user_response.data and len(user_response.data) > 0:
+            telegram_id = user_response.data[0].get('telegram_id')
+        
+        # Check progress
+        is_completed = False
+        if telegram_id:
+            category = lesson_data.get('category')
+            progress_response = supabase.table('course_progress').select('*').eq('telegram_id', telegram_id).eq('category', category).execute()
+            
+            if progress_response.data and len(progress_response.data) > 0:
+                current_lesson = progress_response.data[0].get('current_lesson', 1)
+                # Get all lessons in category to determine order
+                all_category_lessons = supabase.table('video_lessons').select('id').eq('category', category).order('id').execute()
+                lesson_ids = [str(l['id']) for l in all_category_lessons.data]
+                
+                try:
+                    lesson_position = lesson_ids.index(lesson_id) + 1
+                    is_completed = lesson_position < current_lesson
+                except ValueError:
+                    is_completed = False
+        
+        return {
+            **lesson_data,
+            'is_completed': is_completed,
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching lesson detail: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/lesson/{lesson_id}/complete", response_model=CompleteLessonResponse)
+async def complete_lesson(lesson_id: str, request: CompleteLessonRequest):
+    """Mark a lesson as completed"""
+    try:
+        user_id = request.user_id
+        
+        # Get user's telegram_id
+        user_response = supabase.table('users').select('telegram_id').eq('id', user_id).execute()
+        
+        if not user_response.data or len(user_response.data) == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        telegram_id = user_response.data[0].get('telegram_id')
+        if not telegram_id:
+            raise HTTPException(status_code=400, detail="User has no telegram_id")
+        
+        # Get lesson info
+        lesson_response = supabase.table('video_lessons').select('*').eq('id', lesson_id).execute()
+        
+        if not lesson_response.data or len(lesson_response.data) == 0:
+            raise HTTPException(status_code=404, detail="Lesson not found")
+        
+        lesson_data = lesson_response.data[0]
+        category = lesson_data.get('category')
+        
+        # Get all lessons in this category to find current position
+        all_lessons = supabase.table('video_lessons').select('id').eq('category', category).order('id').execute()
+        lesson_ids = [str(l['id']) for l in all_lessons.data]
+        
+        try:
+            lesson_position = lesson_ids.index(lesson_id) + 1
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid lesson")
+        
+        # Update or create progress
+        progress_response = supabase.table('course_progress').select('*').eq('telegram_id', telegram_id).eq('category', category).execute()
+        
+        now = datetime.now().isoformat()
+        next_unlock_date = (datetime.now() + timedelta(days=3)).strftime('%Y-%m-%d')
+        next_send_at = (datetime.now() + timedelta(days=3)).isoformat()
+        
+        if progress_response.data and len(progress_response.data) > 0:
+            # Update: move to next lesson
+            current = progress_response.data[0].get('current_lesson', 1)
+            new_lesson_num = max(current, lesson_position + 1)
+            
+            supabase.table('course_progress').update({
+                'current_lesson': new_lesson_num,
+                'last_sent_at': now,
+                'next_send_at': next_send_at,
+                'is_active': True,
+            }).eq('telegram_id', telegram_id).eq('category', category).execute()
+        else:
+            # Create new progress
+            supabase.table('course_progress').insert({
+                'telegram_id': telegram_id,
+                'category': category,
+                'current_lesson': lesson_position + 1,
+                'last_sent_at': now,
+                'next_send_at': next_send_at,
+                'is_active': True,
+                'created_at': now,
+            }).execute()
+        
+        # Award points (+10)
+        points_response = supabase.table('users').select('points').eq('id', user_id).execute()
+        
+        if points_response.data and len(points_response.data) > 0:
+            current_points = points_response.data[0].get('points', 0) or 0
+            new_points = current_points + 10
+            
+            supabase.table('users').update({
+                'points': new_points
+            }).eq('id', user_id).execute()
+        
+        return CompleteLessonResponse(
+            success=True,
+            points_earned=10,
+            next_unlock_date=next_unlock_date,
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error completing lesson: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 # Include the router in the main app
 app.include_router(api_router)

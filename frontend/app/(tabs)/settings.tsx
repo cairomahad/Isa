@@ -14,13 +14,11 @@ import { CITIES } from '../../constants/cities';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { user, setUser, session, selectedCity, setCity, setAdmin } = useAuthStore();
+  const { user, setUser, session, selectedCity, setCity } = useAuthStore();
   const [name, setName] = useState(user?.display_name || '');
   const [editingName, setEditingName] = useState(false);
   const [savingName, setSavingName] = useState(false);
   const [notifs, setNotifs] = useState(user?.notifications_enabled ?? true);
-  const [adminCode, setAdminCode] = useState('');
-  const [showAdminInput, setShowAdminInput] = useState(false);
 
   const saveName = async () => {
     const trimmed = name.trim();
@@ -57,18 +55,6 @@ export default function SettingsScreen() {
     setUser({ ...user!, notifications_enabled: val });
   };
 
-  const handleAdminLogin = () => {
-    const adminPassword = process.env.EXPO_PUBLIC_ADMIN_PASSWORD || 'admin2024';
-    if (adminCode === adminPassword) {
-      setAdmin(true);
-      setShowAdminInput(false);
-      setAdminCode('');
-      router.push('/admin');
-    } else {
-      Alert.alert('Ошибка', 'Неверный пароль');
-    }
-  };
-
   const signOut = async () => {
     Alert.alert('Выход', 'Вы уверены?', [
       { text: 'Отмена', style: 'cancel' },
@@ -76,8 +62,13 @@ export default function SettingsScreen() {
         text: 'Выйти',
         style: 'destructive',
         onPress: async () => {
-          await supabase.auth.signOut();
+          // Clear auth store
+          useAuthStore.getState().setSession(null);
+          useAuthStore.getState().setUser(null);
+          // Clear local storage
           await AsyncStorage.removeItem('selected_city');
+          // Navigate to welcome
+          router.replace('/(auth)/welcome');
         },
       },
     ]);
@@ -226,38 +217,6 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          {/* Admin */}
-          <Section title="Для преподавателей" />
-          <View style={styles.card}>
-            <TouchableOpacity
-              style={styles.row}
-              onPress={() => setShowAdminInput(!showAdminInput)}
-              testID="admin-section-btn"
-            >
-              <Ionicons name="shield" size={20} color={Colors.gold} style={styles.rowIcon} />
-              <View style={styles.rowContent}>
-                <Text style={styles.rowLabel}>Панель администратора</Text>
-              </View>
-              <Ionicons name={showAdminInput ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textSecondary} />
-            </TouchableOpacity>
-            {showAdminInput && (
-              <View style={styles.adminInputRow}>
-                <TextInput
-                  style={styles.adminInput}
-                  value={adminCode}
-                  onChangeText={setAdminCode}
-                  placeholder="Введите пароль"
-                  placeholderTextColor={Colors.textSecondary}
-                  secureTextEntry
-                  testID="admin-password-input"
-                />
-                <TouchableOpacity style={styles.adminBtn} onPress={handleAdminLogin} testID="admin-login-btn">
-                  <Text style={styles.adminBtnText}>Войти</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-
           {/* Sign out */}
           <TouchableOpacity style={styles.signOutBtn} onPress={signOut} testID="sign-out-btn">
             <Ionicons name="log-out" size={18} color={Colors.error} />
@@ -349,31 +308,6 @@ const styles = StyleSheet.create({
   rowLabel: { fontSize: 15, color: Colors.textPrimary },
   rowValue: { fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
   rowDivider: { height: 1, backgroundColor: Colors.darkGreen, marginHorizontal: 16 },
-  adminInputRow: {
-    flexDirection: 'row',
-    padding: 16,
-    paddingTop: 0,
-    gap: 8,
-  },
-  adminInput: {
-    flex: 1,
-    backgroundColor: Colors.inputBg,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 15,
-    color: Colors.textPrimary,
-    borderWidth: 1,
-    borderColor: Colors.darkGreen,
-  },
-  adminBtn: {
-    backgroundColor: Colors.gold,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  adminBtnText: { fontSize: 14, fontWeight: 'bold', color: Colors.background },
   signOutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
