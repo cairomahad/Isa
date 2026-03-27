@@ -1,0 +1,184 @@
+{
+  "theme": "dark",
+  "archetype": "Islamic Premium Dark (Jewel & Luxury + Organic)",
+  "global_rules": {
+    "framework": "React Native Expo SDK 54",
+    "styling": "React Native StyleSheet.create() ONLY. No HTML, no tailwind classes, no standard CSS. Flexbox exclusively.",
+    "testing": "All interactive and key informational elements MUST include a `testID` attribute (React Native equivalent of data-testid).",
+    "language": "Russian (main), Arabic (Islamic content only, right-aligned)."
+  },
+  "colors": {
+    "background": {
+      "primary": "#0D1B14",
+      "card_dark": "#132218",
+      "card_light": "#1A2E22"
+    },
+    "brand": {
+      "gold_primary": "#C9A84C",
+      "dark_green": "#1B4332",
+      "medium_green": "#2D6A4F"
+    },
+    "text": {
+      "primary": "#F5F0E8",
+      "secondary": "#A8B4AE",
+      "gold": "#C9A84C",
+      "dark_on_gold": "#0D1B14"
+    },
+    "status": {
+      "error": "#E63946",
+      "success": "#2D6A4F"
+    }
+  },
+  "typography": {
+    "font_families": {
+      "russian": "System (San Francisco/Roboto) or a clean Sans-Serif via Expo Google Fonts like 'Inter'.",
+      "arabic": "Amiri (must be loaded via Expo Google Fonts), explicitly right-aligned."
+    },
+    "scales": {
+      "h1": { "fontSize": 32, "fontWeight": "bold", "color": "#F5F0E8", "lineHeight": 40 },
+      "h2": { "fontSize": 24, "fontWeight": "bold", "color": "#F5F0E8", "lineHeight": 32 },
+      "h3": { "fontSize": 20, "fontWeight": "600", "color": "#C9A84C", "lineHeight": 28 },
+      "body": { "fontSize": 16, "fontWeight": "normal", "color": "#F5F0E8", "lineHeight": 24 },
+      "body_small": { "fontSize": 14, "fontWeight": "normal", "color": "#A8B4AE", "lineHeight": 20 },
+      "arabic_large": { "fontSize": 28, "fontFamily": "Amiri", "color": "#C9A84C", "textAlign": "right", "lineHeight": 48 },
+      "arabic_medium": { "fontSize": 22, "fontFamily": "Amiri", "color": "#F5F0E8", "textAlign": "right", "lineHeight": 38 }
+    }
+  },
+  "spacing_and_layout": {
+    "padding": {
+      "screen": 20,
+      "card": 16,
+      "button": 16,
+      "small": 8
+    },
+    "border_radius": {
+      "card": 16,
+      "button": 12,
+      "pill": 999
+    },
+    "shadows": {
+      "subtle": {
+        "shadowColor": "#000",
+        "shadowOffset": { "width": 0, "height": 4 },
+        "shadowOpacity": 0.3,
+        "shadowRadius": 6,
+        "elevation": 5
+      }
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": {
+        "backgroundColor": "#C9A84C",
+        "borderRadius": 12,
+        "paddingVertical": 16,
+        "alignItems": "center",
+        "justifyContent": "center"
+      },
+      "primary_text": {
+        "color": "#0D1B14",
+        "fontSize": 16,
+        "fontWeight": "bold"
+      },
+      "secondary": {
+        "backgroundColor": "#2D6A4F",
+        "borderRadius": 12,
+        "paddingVertical": 16,
+        "alignItems": "center",
+        "justifyContent": "center"
+      },
+      "secondary_text": {
+        "color": "#F5F0E8",
+        "fontSize": 16,
+        "fontWeight": "600"
+      }
+    },
+    "cards": {
+      "base": {
+        "backgroundColor": "#132218",
+        "borderRadius": 16,
+        "padding": 16,
+        "borderWidth": 1,
+        "borderColor": "#1B4332"
+      },
+      "highlight": {
+        "backgroundColor": "#1A2E22",
+        "borderRadius": 16,
+        "padding": 20,
+        "borderWidth": 1,
+        "borderColor": "#C9A84C"
+      }
+    },
+    "bottom_tabs": {
+      "container": {
+        "backgroundColor": "#0D1B14",
+        "borderTopWidth": 1,
+        "borderTopColor": "#1B4332",
+        "paddingBottom": 8,
+        "paddingTop": 8
+      },
+      "active_tint": "#C9A84C",
+      "inactive_tint": "#2D6A4F"
+    },
+    "progress_bar": {
+      "track": {
+        "height": 8,
+        "backgroundColor": "#1B4332",
+        "borderRadius": 4
+      },
+      "fill": {
+        "height": 8,
+        "backgroundColor": "#C9A84C",
+        "borderRadius": 4
+      }
+    }
+  },
+  "screens": {
+    "welcome": {
+      "layout": "Centered flexbox, full height",
+      "elements": "Mosque Logo, App Title (Tazakkur / Нур), Name Input field (dark green bg, gold border on focus), Primary Submit Button."
+    },
+    "onboarding": {
+      "layout": "Swiper/Carousel with 3 slides.",
+      "elements": "Background image with dark overlay, Title, Subtitle, Pagination dots (gold for active, dark green for inactive), 'Next'/'Start' button."
+    },
+    "dashboard_index": {
+      "layout": "ScrollView with vertical padding",
+      "elements": "Welcome Header (greeting user), Next Prayer Card (highlight card style with countdown), Active Course Progress Card, Daily Hadith minimal widget."
+    },
+    "lessons": {
+      "layout": "SectionList or FlatList",
+      "elements": "Horizontal category scroll, Vertical list of Lesson Cards (thumbnail, title, progress bar, duration)."
+    },
+    "prayers": {
+      "layout": "ScrollView",
+      "elements": "City Selector dropdown, Main Countdown clock (large gold text), List of 5 daily prayers with times, Missed Prayers counter (stepper component)."
+    },
+    "hadiths": {
+      "layout": "Card stack or vertical scroll",
+      "elements": "Daily Hadith Card (Arabic text top right, Russian translation below), Story of the Day, Benefit of the Day."
+    },
+    "rating": {
+      "layout": "FlatList",
+      "elements": "Top 3 Podium (Gold, Silver, Bronze highlights), List of remaining top-10 users with their points."
+    },
+    "settings": {
+      "layout": "ScrollView",
+      "elements": "User Profile summary, Notifications toggle, City selection, App info."
+    },
+    "lesson_detail": {
+      "layout": "View with Video Player top, ScrollView for content",
+      "elements": "Video placeholder, Lesson Title, Description, 'Take Quiz' button."
+    }
+  },
+  "media": {
+    "images": {
+      "quran_placeholder_1": "https://images.unsplash.com/photo-1609665662034-39a381ce402a?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "quran_placeholder_2": "https://images.unsplash.com/photo-1597505495109-7fc35bb64d8e?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "quran_stand": "https://images.pexels.com/photos/8522572/pexels-photo-8522572.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "mosque_bg_1": "https://images.unsplash.com/photo-1710026583991-56cfea763f28?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "mosque_bg_2": "https://images.unsplash.com/photo-1636111505978-6a08217d7d36?crop=entropy&cs=srgb&fm=jpg&q=85"
+    },
+    "icons_strategy": "Use @expo/vector-icons (Feather or Ionicons) heavily. Use Ionicons 'moon' and 'star' for Islamic motifs."
+  }
+}
