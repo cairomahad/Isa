@@ -74,6 +74,18 @@ class Benefit(BaseModel):
     text: str
     image_url: Optional[str] = None
 
+# Login Models
+class LoginRequest(BaseModel):
+    phone: str
+    password: str
+
+class LoginResponse(BaseModel):
+    user_id: str
+    phone: str
+    display_name: str
+    role: str
+    points: int
+
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
 async def root():
@@ -265,6 +277,42 @@ async def get_daily_benefit():
         
     except Exception as e:
         logger.error(f"Error fetching benefit: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== AUTH API ==========
+@api_router.post("/auth/login", response_model=LoginResponse)
+async def login(request: LoginRequest):
+    """Login with phone and password"""
+    try:
+        # Query Supabase for user
+        response = supabase.table('users').select('*').eq('phone', request.phone).execute()
+        
+        if not response.data or len(response.data) == 0:
+            raise HTTPException(status_code=401, detail="Неверный телефон или пароль")
+        
+        user = response.data[0]
+        
+        # Simple password check (без хеширования пока)
+        # В продакшене используйте bcrypt
+        if user.get('password') != request.password:
+            raise HTTPException(status_code=401, detail="Неверный телефон или пароль")
+        
+        # Определяем роль
+        role = user.get('role', 'student')
+        
+        return LoginResponse(
+            user_id=str(user.get('id', '')),
+            phone=user.get('phone', ''),
+            display_name=user.get('display_name', 'Студент'),
+            role=role,
+            points=user.get('points', 0),
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Login error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Include the router in the main app

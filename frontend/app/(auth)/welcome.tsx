@@ -1,125 +1,65 @@
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Image, KeyboardAvoidingView, Platform, ScrollView, Alert,
-  ActivityIndicator,
+  View, Text, StyleSheet, TextInput, TouchableOpacity,
+  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Alert,
 } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../../lib/supabase';
-import { useAuthStore } from '../../store/authStore';
+import { Image } from 'react-native';
 import { Colors, Shadows } from '../../constants/colors';
-
-// Simple UUID v4 generator (no external dependency)
-function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = Math.random() * 16 | 0;
-    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-  });
-}
+import { useAuthStore } from '../../store/authStore';
 
 export default function WelcomeScreen() {
-  const [name, setName] = useState('');
-  const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { setSession, setUser } = useAuthStore();
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleStart = async () => {
-    const trimmed = name.trim();
-    if (trimmed.length < 2 || trimmed.length > 30) {
-      Alert.alert('Ошибка', 'Имя должно быть от 2 до 30 символов');
+  const handleLogin = async () => {
+    if (!phone.trim() || phone.trim().length < 10) {
+      Alert.alert('Ошибка', 'Введите корректный номер телефона (минимум 10 цифр)');
+      return;
+    }
+
+    if (!password.trim() || password.trim().length < 4) {
+      Alert.alert('Ошибка', 'Пароль должен быть минимум 4 символа');
       return;
     }
 
     setLoading(true);
+
     try {
-      let userId: string;
-      let isFirstTime = false;
-
-      // Try Supabase anonymous sign-in
-      const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://cli-app-runner.preview.emergentagent.com';
       
-      if (authError) {
-        // Fallback: use local UUID (if anonymous sign-ins are disabled in Supabase)
-        console.warn('Anonymous auth failed, using local UUID fallback:', authError.message);
-        let localId = await AsyncStorage.getItem('local_user_id');
-        if (!localId) {
-          localId = generateUUID();
-          await AsyncStorage.setItem('local_user_id', localId);
-          isFirstTime = true;
-        }
-        userId = localId;
+      const response = await fetch(`${backendUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phone.trim(), password: password.trim() }),
+      });
 
-        // Try to find existing user by local ID
-        const { data: existingUser } = await supabase
-          .from('users')
-          .select('*')
-          .eq('app_user_id', userId)
-          .single();
+      const data = await response.json();
 
-        if (existingUser) {
-          setUser(existingUser);
-          // Create a mock session
-          const mockSession = { user: { id: userId } } as any;
-          setSession(mockSession);
-          router.replace('/(tabs)');
-          return;
-        }
-
-        // Create new user
-        const { data: newUser } = await supabase
-          .from('users')
-          .insert([{ display_name: trimmed, app_user_id: userId, points: 0, city: 'Москва', notifications_enabled: true }])
-          .select()
-          .single();
-
-        setUser(newUser || { id: userId, display_name: trimmed, points: 0, city: 'Москва' });
-        const mockSession = { user: { id: userId } } as any;
-        setSession(mockSession);
-        router.replace('/(auth)/onboarding');
-        return;
+      if (!response.ok) {
+        throw new Error(data.detail || 'Неверный телефон или пароль');
       }
 
-      userId = authData.user!.id;
+      setSession({ user: { id: data.user_id, phone: data.phone } });
+      setUser({
+        id: data.user_id,
+        phone: data.phone,
+        display_name: data.display_name,
+        role: data.role,
+        points: data.points || 0,
+      });
 
-      // Check if user already exists
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('*')
-        .eq('app_user_id', userId)
-        .single();
-
-      if (existingUser) {
-        setUser(existingUser);
-        setSession(authData.session);
+      if (data.role === 'admin') {
+        router.replace('/admin');
+      } else {
         router.replace('/(tabs)');
-        return;
       }
-
-      // Create new user record
-      const { data: newUser, error: insertError } = await supabase
-        .from('users')
-        .insert([{
-          display_name: trimmed,
-          app_user_id: userId,
-          points: 0,
-          city: 'Москва',
-          notifications_enabled: true,
-        }])
-        .select()
-        .single();
-
-      if (insertError) {
-        console.warn('Insert error:', insertError.message);
-      }
-
-      setUser(newUser || { id: userId, display_name: trimmed, points: 0 });
-      setSession(authData.session);
-      router.replace('/(auth)/onboarding');
-    } catch (err: any) {
-      console.error(err);
-      Alert.alert('Ошибка', err.message || 'Не удалось войти. Попробуйте снова.');
+    } catch (error: any) {
+      Alert.alert('Ошибка входа', error.message || 'Не удалось войти. Проверьте данные.');
     } finally {
       setLoading(false);
     }
@@ -136,10 +76,8 @@ export default function WelcomeScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Bismillah */}
           <Text style={styles.bismillah}>بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ</Text>
 
-          {/* Logo */}
           <Image
             source={require('../../assets/images/mosque-logo.png')}
             style={styles.logo}
@@ -147,41 +85,52 @@ export default function WelcomeScreen() {
             testID="mosque-logo"
           />
 
-          {/* App Name */}
           <Text style={styles.appName}>Tazakkur</Text>
           <Text style={styles.subtitle}>Исламское приложение для мусульман</Text>
 
-          {/* Name Input Card */}
           <View style={styles.inputCard}>
-            <Text style={styles.label}>Введите ваше имя</Text>
+            <Text style={styles.label}>Вход в систему</Text>
+            
             <TextInput
-              testID="name-input"
+              testID="phone-input"
               style={styles.input}
-              placeholder="Имя (2–30 символов)"
+              placeholder="Номер телефона"
               placeholderTextColor={Colors.textSecondary}
-              value={name}
-              onChangeText={setName}
-              maxLength={30}
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              maxLength={15}
+              autoCorrect={false}
+            />
+
+            <TextInput
+              testID="password-input"
+              style={[styles.input, { marginTop: 12 }]}
+              placeholder="Пароль"
+              placeholderTextColor={Colors.textSecondary}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              maxLength={50}
               autoCorrect={false}
             />
           </View>
 
-          {/* Button */}
           <TouchableOpacity
-            testID="start-button"
+            testID="login-button"
             style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleStart}
+            onPress={handleLogin}
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color={Colors.background} />
+              <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.buttonText}>Начать</Text>
+              <Text style={styles.buttonText}>Войти</Text>
             )}
           </TouchableOpacity>
 
           <Text style={styles.footer}>
-            Авторизация анонимная — без телефона и email
+            Для регистрации обратитесь к администратору
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -236,8 +185,9 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 15,
     color: Colors.textPrimary,
-    marginBottom: 12,
+    marginBottom: 16,
     fontWeight: '600',
+    textAlign: 'center',
   },
   input: {
     width: '100%',
