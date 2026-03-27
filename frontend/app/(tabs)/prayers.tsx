@@ -80,11 +80,24 @@ export default function PrayersScreen() {
         return;
       }
 
-      const url = `https://api.aladhan.com/v1/timingsByCity?city=${encodeURIComponent(city.city)}&country=${encodeURIComponent(city.country)}&method=${city.method}`;
+      // Call our Backend API
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://cli-app-runner.preview.emergentagent.com';
+      const citySlug = city.slug || 'moscow'; // Используем slug из cities
+      const url = `${backendUrl}/api/prayer-times?city=${citySlug}`;
+      
       const res = await fetch(url);
       const json = await res.json();
-      const timings = json.data?.timings;
-      if (timings) {
+      
+      if (json && json.fajr) {
+        // Преобразуем формат нашего API в формат компонента
+        const timings = {
+          Fajr: json.fajr,
+          Sunrise: json.sunrise,
+          Dhuhr: json.dhuhr,
+          Asr: json.asr,
+          Maghrib: json.maghrib,
+          Isha: json.isha,
+        };
         setPrayerTimes(timings);
         await AsyncStorage.setItem(cacheKey, JSON.stringify(timings));
       }

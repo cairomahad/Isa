@@ -22,26 +22,25 @@ export default function HadithsScreen() {
 
   const fetchContent = useCallback(async () => {
     try {
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://cli-app-runner.preview.emergentagent.com';
+      
       const [hadithRes, storyRes, benefitRes] = await Promise.all([
-        supabase.from('hadiths').select('*').order('id').limit(50),
-        supabase.from('stories').select('*').order('id').limit(50),
-        supabase.from('benefits').select('*').order('id').limit(50),
+        fetch(`${backendUrl}/api/hadith/daily`),
+        fetch(`${backendUrl}/api/story/daily`),
+        fetch(`${backendUrl}/api/benefit/daily`),
       ]);
 
-      const dayOfYear = Math.floor(
-        (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
-      );
-
-      const hadithData = hadithRes.data;
-      const storyData = storyRes.data;
-      const benefitData = benefitRes.data;
+      const hadithData = hadithRes.ok ? await hadithRes.json() : null;
+      const storyData = storyRes.ok ? await storyRes.json() : null;
+      const benefitData = benefitRes.ok ? await benefitRes.json() : null;
 
       setContent({
-        hadith: hadithData?.length ? hadithData[dayOfYear % hadithData.length] : DEMO_HADITH,
-        story: storyData?.length ? storyData[dayOfYear % storyData.length] : DEMO_STORY,
-        benefit: benefitData?.length ? benefitData[dayOfYear % benefitData.length] : DEMO_BENEFIT,
+        hadith: hadithData || DEMO_HADITH,
+        story: storyData || DEMO_STORY,
+        benefit: benefitData || DEMO_BENEFIT,
       });
     } catch (err) {
+      console.warn('Error fetching content:', err);
       setContent({ hadith: DEMO_HADITH, story: DEMO_STORY, benefit: DEMO_BENEFIT });
     } finally {
       setLoading(false);
