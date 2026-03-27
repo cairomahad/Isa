@@ -1,7 +1,7 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Query, UploadFile, File
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, APIRouter, HTTPException, Query
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
+from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 from pathlib import Path
@@ -12,13 +12,17 @@ from datetime import datetime, timedelta
 import httpx
 from supabase import create_client, Client
 import random
-import io
 
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# Supabase connection (NO MONGODB)
+# MongoDB connection
+mongo_url = os.environ['MONGO_URL']
+client = AsyncIOMotorClient(mongo_url)
+db = client[os.environ['DB_NAME']]
+
+# Supabase connection
 supabase_url = os.getenv('SUPABASE_URL', 'https://kmhhazpyalpjwspjxzry.supabase.co')
 supabase_key = os.getenv('SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttaGhhenB5YWxwandzcGp4enJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4ODIyNzEsImV4cCI6MjA3ODQ1ODI3MX0.adj7b0hh3deVFN4JK6_s0Vjx_KtdLs9N9LaVkQQ__BA')
 supabase: Client = create_client(supabase_url, supabase_key)
@@ -148,21 +152,6 @@ class SubmitHomeworkResponse(BaseModel):
     submission_id: str
     message: str
 
-# Quran Models
-class StartQuranProgramRequest(BaseModel):
-    user_id: str
-    surah_number: int
-
-class LearnAyahRequest(BaseModel):
-    user_id: str
-    surah: int
-    ayah: int
-
-class ReviewAyahRequest(BaseModel):
-    user_id: str
-    surah: int
-    ayah: int
-
 # Admin Models
 class StudentProgress(BaseModel):
     user_id: str
@@ -192,18 +181,18 @@ class ReviewHomeworkRequest(BaseModel):
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
 async def root():
-    return {"message": "Tazakkur API - Supabase Only"}
+    return {"message": "Hello World"}
 
 @api_router.post("/status", response_model=StatusCheck)
 async def create_status_check(input: StatusCheckCreate):
     status_dict = input.dict()
     status_obj = StatusCheck(**status_dict)
-    supabase.table('status_checks').insert(status_obj.dict()).execute()
+    _ = await db.status_checks.insert_one(status_obj.dict())
     return status_obj
 
 @api_router.get("/status", response_model=List[StatusCheck])
 async def get_status_checks():
-    response = supabase.table('status_checks').select('*').order('created_at', desc=True).limit(1000).execute(); status_checks = response.data or []
+    status_checks = await db.status_checks.find().to_list(1000)
     return [StatusCheck(**status_check) for status_check in status_checks]
 
 
@@ -222,8 +211,6 @@ CITIES = {
 async def get_prayer_times(city: str = Query("moscow", description="City slug")):
     """Get prayer times for a specific city using Aladhan API"""
     try:
-        city = city.lower()  # Convert to lowercase
-        
         if city not in CITIES:
             raise HTTPException(status_code=400, detail=f"City not found. Available: {list(CITIES.keys())}")
         
@@ -231,7 +218,7 @@ async def get_prayer_times(city: str = Query("moscow", description="City slug"))
         
         # Check cache (24 hours)
         cache_key = f"prayer_times_{city}_{datetime.now().strftime('%Y-%m-%d')}"
-        cached_response = supabase.table('prayer_cache').select('*').eq('key', cache_key).execute(); cached = cached_response.data[0] if cached_response.data else None
+        cached = await db.prayer_cache.find_one({"key": cache_key})
         
         if cached and cached.get('data'):
             logger.info(f"Prayer times cache hit for {city}")
@@ -262,7 +249,7 @@ async def get_prayer_times(city: str = Query("moscow", description="City slug"))
         )
         
         # Cache for 24 hours
-        supabase.table('prayer_cache').insert({
+        await db.prayer_cache.insert_one({
             "key": cache_key,
             "data": result.dict(),
             "created_at": datetime.now(),
@@ -1121,12 +1108,9 @@ async def get_quran_program(user_id: str = Query(...)):
 
 
 @api_router.post("/quran/start-program")
-async def start_quran_program(request: StartQuranProgramRequest):
+async def start_quran_program(user_id: str, surah_number: int):
     """Start Quran learning program"""
     try:
-        user_id = request.user_id
-        surah_number = request.surah_number
-        
         user_response = supabase.table('users').select('telegram_id').eq('id', user_id).execute()
         
         if not user_response.data or len(user_response.data) == 0:
@@ -1162,13 +1146,9 @@ async def start_quran_program(request: StartQuranProgramRequest):
 
 
 @api_router.post("/quran/learn-ayah")
-async def learn_ayah(request: LearnAyahRequest):
+async def learn_ayah(user_id: str, surah: int, ayah: int):
     """Mark ayah as learned"""
     try:
-        user_id = request.user_id
-        surah = request.surah
-        ayah = request.ayah
-        
         user_response = supabase.table('users').select('telegram_id').eq('id', user_id).execute()
         
         if not user_response.data or len(user_response.data) == 0:
@@ -1247,13 +1227,9 @@ async def learn_ayah(request: LearnAyahRequest):
 
 
 @api_router.post("/quran/review-ayah")
-async def review_ayah(request: ReviewAyahRequest):
+async def review_ayah(user_id: str, surah: int, ayah: int):
     """Mark ayah as reviewed"""
     try:
-        user_id = request.user_id
-        surah = request.surah
-        ayah = request.ayah
-        
         user_response = supabase.table('users').select('telegram_id').eq('id', user_id).execute()
         
         if not user_response.data or len(user_response.data) == 0:
@@ -1482,140 +1458,6 @@ async def delete_lesson(lesson_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ========== SUPABASE STORAGE ==========
-# File Upload Response
-class UploadResponse(BaseModel):
-    success: bool
-    file_url: str
-    file_id: str
-    bucket: str
-
-@api_router.post("/upload/video", response_model=UploadResponse)
-async def upload_video(file: UploadFile = File(...)):
-    """Upload video to Supabase Storage"""
-    try:
-        # Read file content
-        content = await file.read()
-        
-        # Generate unique filename
-        file_id = str(uuid.uuid4())
-        file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'mp4'
-        filename = f"{file_id}.{file_extension}"
-        
-        # Upload to Supabase Storage
-        bucket_name = 'lessons'
-        response = supabase.storage.from_(bucket_name).upload(
-            filename,
-            content,
-            file_options={"content-type": file.content_type or "video/mp4"}
-        )
-        
-        # Get public URL
-        public_url = supabase.storage.from_(bucket_name).get_public_url(filename)
-        
-        return UploadResponse(
-            success=True,
-            file_url=public_url,
-            file_id=file_id,
-            bucket=bucket_name
-        )
-        
-    except Exception as e:
-        logger.error(f"Error uploading video: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to upload video: {str(e)}")
-
-
-@api_router.post("/upload/audio", response_model=UploadResponse)
-async def upload_audio(file: UploadFile = File(...)):
-    """Upload audio to Supabase Storage"""
-    try:
-        content = await file.read()
-        
-        file_id = str(uuid.uuid4())
-        file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'mp3'
-        filename = f"{file_id}.{file_extension}"
-        
-        bucket_name = 'homework'
-        response = supabase.storage.from_(bucket_name).upload(
-            filename,
-            content,
-            file_options={"content-type": file.content_type or "audio/mpeg"}
-        )
-        
-        public_url = supabase.storage.from_(bucket_name).get_public_url(filename)
-        
-        return UploadResponse(
-            success=True,
-            file_url=public_url,
-            file_id=file_id,
-            bucket=bucket_name
-        )
-        
-    except Exception as e:
-        logger.error(f"Error uploading audio: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to upload audio: {str(e)}")
-
-
-@api_router.post("/upload/photo", response_model=UploadResponse)
-async def upload_photo(file: UploadFile = File(...)):
-    """Upload photo to Supabase Storage"""
-    try:
-        content = await file.read()
-        
-        file_id = str(uuid.uuid4())
-        file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
-        filename = f"{file_id}.{file_extension}"
-        
-        bucket_name = 'homework'
-        response = supabase.storage.from_(bucket_name).upload(
-            filename,
-            content,
-            file_options={"content-type": file.content_type or "image/jpeg"}
-        )
-        
-        public_url = supabase.storage.from_(bucket_name).get_public_url(filename)
-        
-        return UploadResponse(
-            success=True,
-            file_url=public_url,
-            file_id=file_id,
-            bucket=bucket_name
-        )
-        
-    except Exception as e:
-        logger.error(f"Error uploading photo: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to upload photo: {str(e)}")
-
-
-@api_router.get("/files/{bucket}/{filename}")
-async def get_file(bucket: str, filename: str):
-    """Get file from Supabase Storage"""
-    try:
-        # Get file from Supabase Storage
-        file_data = supabase.storage.from_(bucket).download(filename)
-        
-        # Determine content type
-        content_type = "application/octet-stream"
-        if filename.endswith(('.jpg', '.jpeg', '.png')):
-            content_type = "image/jpeg"
-        elif filename.endswith('.mp4'):
-            content_type = "video/mp4"
-        elif filename.endswith('.mp3'):
-            content_type = "audio/mpeg"
-        elif filename.endswith('.pdf'):
-            content_type = "application/pdf"
-        
-        return StreamingResponse(
-            io.BytesIO(file_data),
-            media_type=content_type,
-            headers={"Content-Disposition": f"inline; filename={filename}"}
-        )
-        
-    except Exception as e:
-        logger.error(f"Error getting file: {e}")
-        raise HTTPException(status_code=404, detail="File not found")
-
-
 # Include the router in the main app
 app.include_router(api_router)
 
@@ -1634,4 +1476,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# App lifecycle events (MongoDB removed)
+@app.on_event("shutdown")
+async def shutdown_db_client():
+    client.close()

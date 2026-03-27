@@ -1,0 +1,30 @@
+# Lines to replace in server.py:
+
+# Line 185-186: Replace
+    _ = await db.status_checks.insert_one(status_obj.dict())
+    return status_obj
+# With:
+    try:
+        status_data = status_obj.dict()
+        supabase.table('status_checks').insert(status_data).execute()
+        return status_obj
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Line 190-191: Replace
+    status_checks = await db.status_checks.find().to_list(1000)
+    return [StatusCheck(**status_check) for status_check in status_checks]
+# With:
+    response = supabase.table('status_checks').select('*').order('created_at', desc=True).limit(1000).execute()
+    return [StatusCheck(**check) for check in (response.data or [])]
+
+# Line 221: Replace
+        cached = await db.prayer_cache.find_one({"key": cache_key})
+# With:
+        cached_response = supabase.table('prayer_cache').select('*').eq('key', cache_key).execute()
+        cached = cached_response.data[0] if cached_response.data else None
+
+# Line 252: Replace
+        await db.prayer_cache.insert_one({
+# With:
+        supabase.table('prayer_cache').insert({
