@@ -16,15 +16,23 @@ export default function TabLayout() {
         headerShown: false,
         tabBarStyle: {
           backgroundColor: Colors.tabBar,
-          borderTopWidth: 1,
-          borderTopColor: Colors.darkGreen,
-          paddingBottom: Platform.OS === 'ios' ? 20 : 8,
-          paddingTop: 8,
-          height: Platform.OS === 'ios' ? 80 : 62,
+          borderTopWidth: 0.5,
+          borderTopColor: Colors.border,
+          paddingBottom: Platform.OS === 'ios' ? 24 : 10,
+          paddingTop: 10,
+          height: Platform.OS === 'ios' ? 84 : 64,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.05,
+          shadowRadius: 12,
+          elevation: 8,
         },
-        tabBarActiveTintColor: Colors.gold,
-        tabBarInactiveTintColor: Colors.mediumGreen,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
+        tabBarActiveTintColor: Colors.tabBarActive,
+        tabBarInactiveTintColor: Colors.tabBarInactive,
+        tabBarLabelStyle: { 
+          fontSize: 11, 
+          fontWeight: '600',
+        },
       }}
     >
       <Tabs.Screen
@@ -47,7 +55,7 @@ export default function TabLayout() {
         name="zikr"
         options={{
           title: 'Зикр',
-          tabBarIcon: ({ color }) => <TabIcon name="bead-outline" color={color} />,
+          tabBarIcon: ({ color }) => <TabIcon name="radio-button-on" color={color} />,
           tabBarTestID: 'tab-zikr',
         }}
       />

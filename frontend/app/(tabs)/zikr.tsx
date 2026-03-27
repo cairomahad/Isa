@@ -77,7 +77,7 @@ function CircularProgress({ progress, size = 200 }: { progress: number; size?: n
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={Colors.darkGreen}
+          stroke={Colors.primaryBorder}
           strokeWidth={strokeWidth}
           fill="none"
         />
@@ -86,7 +86,7 @@ function CircularProgress({ progress, size = 200 }: { progress: number; size?: n
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={Colors.gold}
+          stroke={Colors.primary}
           strokeWidth={strokeWidth}
           fill="none"
           strokeDasharray={circumference}
@@ -168,7 +168,7 @@ export default function ZikrScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Зикр 📿</Text>
           <View style={styles.pointsBadge}>
-            <Ionicons name="star" size={16} color={Colors.gold} />
+            <Ionicons name="star" size={16} color={Colors.primary} />
             <Text style={styles.pointsText}>{totalPoints}</Text>
           </View>
         </View>
@@ -206,7 +206,7 @@ export default function ZikrScreen() {
           {/* Reset Button */}
           {count > 0 && (
             <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
-              <Ionicons name="refresh" size={20} color={Colors.gold} />
+              <Ionicons name="refresh" size={18} color={Colors.textSecondary} />
               <Text style={styles.resetButtonText}>Сбросить</Text>
             </TouchableOpacity>
           )}
@@ -230,7 +230,7 @@ export default function ZikrScreen() {
                 <Text style={styles.dhikrCardGoal}>Цель: {dhikr.goal}x</Text>
               </View>
               {selectedDhikr.id === dhikr.id && (
-                <Ionicons name="checkmark-circle" size={24} color={Colors.gold} />
+                <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
               )}
             </TouchableOpacity>
           ))}
@@ -243,130 +243,148 @@ export default function ZikrScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
-  scroll: { flex: 1, paddingHorizontal: 16 },
+  safe: { flex: 1, backgroundColor: Colors.backgroundPage },
+  scroll: { flex: 1, paddingHorizontal: 20 },
+  
+  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 16,
-    marginBottom: 20,
+    paddingTop: 24,
+    marginBottom: 28,
   },
-  title: { fontSize: 24, fontWeight: 'bold', color: Colors.gold },
+  title: { fontSize: 30, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.5 },
   pointsBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.cardDark,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: Colors.primaryLight,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.darkGreen,
+    gap: 4,
   },
-  pointsText: { fontSize: 16, fontWeight: 'bold', color: Colors.gold, marginLeft: 4 },
-  counterContainer: { alignItems: 'center', marginBottom: 32 },
+  pointsText: { fontSize: 17, fontWeight: '700', color: Colors.primary, marginLeft: 4 },
+  
+  // Counter
+  counterContainer: { alignItems: 'center', marginBottom: 36 },
   circleContainer: {
     width: 220,
     height: 220,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: 28,
   },
   counterContent: {
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  countText: { fontSize: 56, fontWeight: 'bold', color: Colors.gold },
-  goalText: { fontSize: 16, color: Colors.textSecondary, marginTop: 4 },
+  countText: { fontSize: 56, fontWeight: '300', color: Colors.primary, letterSpacing: -2 },
+  goalText: { fontSize: 16, color: Colors.textSecondary, marginTop: 6, fontWeight: '500' },
+  
+  // Dhikr Text
   dhikrTextContainer: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 32,
     paddingHorizontal: 20,
   },
   arabicText: {
     fontSize: 32,
-    color: Colors.gold,
-    fontWeight: 'bold',
-    marginBottom: 8,
+    color: Colors.primary,
+    fontWeight: '700',
+    marginBottom: 14,
     textAlign: 'center',
   },
   transliterationText: {
     fontSize: 18,
     color: Colors.textPrimary,
-    marginBottom: 4,
+    marginBottom: 8,
     textAlign: 'center',
+    fontWeight: '600',
   },
   translationText: {
-    fontSize: 14,
+    fontSize: 15,
     color: Colors.textSecondary,
     textAlign: 'center',
+    fontWeight: '400',
   },
+  
+  // Tap Button
   tapButton: {
-    backgroundColor: Colors.gold,
-    paddingHorizontal: 40,
-    paddingVertical: 16,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 50,
+    paddingVertical: 18,
     borderRadius: 30,
-    minWidth: 250,
+    minWidth: 260,
     alignItems: 'center',
-    ...Shadows.card,
+    ...Shadows.gold,
   },
   tapButtonCompleted: {
-    backgroundColor: Colors.mediumGreen,
+    backgroundColor: Colors.greenLight,
   },
   tapButtonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.background,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
+  
+  // Reset Button
   resetButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    marginTop: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
   },
   resetButtonText: {
-    fontSize: 14,
-    color: Colors.gold,
+    fontSize: 15,
+    color: Colors.textSecondary,
     marginLeft: 6,
+    fontWeight: '600',
   },
-  listContainer: { marginTop: 20 },
+  
+  // Dhikr List
+  listContainer: { marginTop: 28, paddingBottom: 24 },
   listTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.gold,
-    marginBottom: 12,
+    fontSize: 22,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginBottom: 16,
   },
   dhikrCard: {
-    backgroundColor: Colors.cardDark,
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 20,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.darkGreen,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    ...Shadows.card,
   },
   dhikrCardActive: {
-    borderColor: Colors.gold,
-    backgroundColor: Colors.mediumGreen,
+    backgroundColor: Colors.greenBackground,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.green,
+    ...Shadows.cardMedium,
   },
   dhikrCardContent: { flex: 1 },
   dhikrCardArabic: {
     fontSize: 20,
-    color: Colors.gold,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    color: Colors.primary,
+    fontWeight: '700',
+    marginBottom: 6,
   },
   dhikrCardTranslation: {
-    fontSize: 14,
+    fontSize: 15,
     color: Colors.textPrimary,
-    marginBottom: 2,
+    marginBottom: 4,
+    fontWeight: '500',
   },
   dhikrCardGoal: {
-    fontSize: 12,
+    fontSize: 13,
     color: Colors.textSecondary,
+    fontWeight: '600',
   },
 });

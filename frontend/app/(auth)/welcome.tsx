@@ -151,21 +151,20 @@ export default function WelcomeScreen() {
           <Text style={styles.appName}>Tazakkur</Text>
           <Text style={styles.subtitle}>Исламское приложение для мусульман</Text>
 
-          {/* Divider */}
-          <View style={styles.divider} />
-
-          {/* Name Input */}
-          <Text style={styles.label}>Введите ваше имя</Text>
-          <TextInput
-            testID="name-input"
-            style={styles.input}
-            placeholder="Имя (2–30 символов)"
-            placeholderTextColor={Colors.textSecondary}
-            value={name}
-            onChangeText={setName}
-            maxLength={30}
-            autoCorrect={false}
-          />
+          {/* Name Input Card */}
+          <View style={styles.inputCard}>
+            <Text style={styles.label}>Введите ваше имя</Text>
+            <TextInput
+              testID="name-input"
+              style={styles.input}
+              placeholder="Имя (2–30 символов)"
+              placeholderTextColor={Colors.textSecondary}
+              value={name}
+              onChangeText={setName}
+              maxLength={30}
+              autoCorrect={false}
+            />
+          </View>
 
           {/* Button */}
           <TouchableOpacity
@@ -197,76 +196,81 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
     paddingVertical: 40,
   },
   bismillah: {
-    fontSize: 20,
-    color: Colors.gold,
+    fontSize: 22,
+    color: Colors.primary,
     textAlign: 'center',
-    marginBottom: 24,
-    fontStyle: 'italic',
+    marginBottom: 32,
+    fontWeight: '600',
   },
   logo: {
-    width: 160,
-    height: 160,
-    marginBottom: 16,
+    width: 180,
+    height: 180,
+    marginBottom: 20,
   },
   appName: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: Colors.gold,
-    letterSpacing: 2,
+    fontSize: 38,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    letterSpacing: -0.5,
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 16,
     color: Colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 48,
+    fontWeight: '500',
   },
-  divider: {
+  inputCard: {
     width: '100%',
-    height: 1,
-    backgroundColor: Colors.darkGreen,
-    marginBottom: 32,
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 24,
+    ...Shadows.card,
   },
   label: {
-    alignSelf: 'flex-start',
-    fontSize: 14,
-    color: Colors.textSecondary,
-    marginBottom: 8,
+    fontSize: 15,
+    color: Colors.textPrimary,
+    marginBottom: 12,
+    fontWeight: '600',
   },
   input: {
     width: '100%',
     height: 52,
-    backgroundColor: Colors.inputBg,
+    backgroundColor: Colors.backgroundPage,
     borderWidth: 1,
-    borderColor: Colors.darkGreen,
+    borderColor: Colors.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     fontSize: 16,
     color: Colors.textPrimary,
-    marginBottom: 20,
   },
   button: {
     width: '100%',
-    height: 52,
-    backgroundColor: Colors.gold,
-    borderRadius: 12,
+    height: 54,
+    backgroundColor: Colors.primary,
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
+    ...Shadows.gold,
   },
-  buttonDisabled: { opacity: 0.7 },
+  buttonDisabled: { opacity: 0.6 },
   buttonText: {
     fontSize: 17,
-    fontWeight: 'bold',
-    color: Colors.background,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
   footer: {
-    fontSize: 12,
+    fontSize: 13,
     color: Colors.textSecondary,
     textAlign: 'center',
+    fontWeight: '500',
   },
 });

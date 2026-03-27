@@ -52,7 +52,7 @@ export default function HomeScreen() {
         {/* Next Prayer Card */}
         <View style={styles.nextPrayerCard}>
           <View style={styles.nextPrayerHeader}>
-            <Ionicons name="alarm" size={24} color={Colors.gold} />
+            <Ionicons name="alarm" size={20} color="#FFFFFF" />
             <Text style={styles.nextPrayerTitle}>Следующий намаз</Text>
           </View>
           <Text style={styles.nextPrayerName}>{nextPrayer.name}</Text>
@@ -69,7 +69,7 @@ export default function HomeScreen() {
             onPress={() => router.push('/zikr')}
           >
             <View style={styles.actionIcon}>
-              <Ionicons name="bead-outline" size={28} color={Colors.gold} />
+              <Ionicons name="radio-button-on" size={28} color={Colors.primary} />
             </View>
             <Text style={styles.actionText}>Зикр</Text>
           </TouchableOpacity>
@@ -79,7 +79,7 @@ export default function HomeScreen() {
             onPress={() => router.push('/missed-prayers')}
           >
             <View style={styles.actionIcon}>
-              <Ionicons name="calendar" size={28} color={Colors.gold} />
+              <Ionicons name="calendar" size={28} color={Colors.primary} />
             </View>
             <Text style={styles.actionText}>Возмещение</Text>
           </TouchableOpacity>
@@ -89,7 +89,7 @@ export default function HomeScreen() {
             onPress={() => router.push('/qa')}
           >
             <View style={styles.actionIcon}>
-              <Ionicons name="chatbubbles" size={28} color={Colors.gold} />
+              <Ionicons name="chatbubbles" size={28} color={Colors.primary} />
             </View>
             <Text style={styles.actionText}>Спросить</Text>
           </TouchableOpacity>
@@ -99,7 +99,7 @@ export default function HomeScreen() {
             onPress={() => router.push('/hadiths')}
           >
             <View style={styles.actionIcon}>
-              <Ionicons name="library" size={28} color={Colors.gold} />
+              <Ionicons name="library" size={28} color={Colors.primary} />
             </View>
             <Text style={styles.actionText}>Хадисы</Text>
           </TouchableOpacity>
@@ -167,157 +167,194 @@ export default function HomeScreen() {
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
-  scroll: { flex: 1, paddingHorizontal: 16 },
+  safe: { flex: 1, backgroundColor: Colors.backgroundPage },
+  scroll: { flex: 1 },
+  
+  // Header
   header: {
-    paddingTop: 16,
-    marginBottom: 24,
+    paddingTop: 24,
+    paddingHorizontal: 20,
+    marginBottom: 28,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-  greeting: { fontSize: 14, color: Colors.textSecondary },
-  name: { fontSize: 22, fontWeight: 'bold', color: Colors.textPrimary, marginTop: 2 },
+  greeting: { 
+    fontSize: 16, 
+    color: Colors.textSecondary, 
+    fontWeight: '500',
+  },
+  name: { 
+    fontSize: 30, 
+    fontWeight: '700', 
+    color: Colors.textPrimary, 
+    marginTop: 4,
+    letterSpacing: -0.5,
+  },
   pointsBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.cardDark,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    backgroundColor: Colors.primaryLight,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.darkGreen,
     gap: 6,
   },
-  pointsText: { fontSize: 18, fontWeight: 'bold', color: Colors.gold },
+  pointsText: { 
+    fontSize: 17, 
+    fontWeight: '700', 
+    color: Colors.primary,
+  },
+  
+  // Next Prayer Hero Card - Золотой градиент
   nextPrayerCard: {
-    backgroundColor: Colors.gold,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
+    backgroundColor: Colors.primary,
+    borderRadius: 24,
+    padding: 24,
+    marginHorizontal: 20,
+    marginBottom: 28,
     alignItems: 'center',
-    ...Shadows.card,
+    ...Shadows.hero,
   },
   nextPrayerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
     gap: 8,
   },
   nextPrayerTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
-    color: Colors.background,
+    color: '#FFFFFF',
+    opacity: 0.95,
   },
   nextPrayerName: {
     fontSize: 32,
-    fontWeight: 'bold',
-    color: Colors.background,
-    marginBottom: 4,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 8,
+    letterSpacing: -0.5,
   },
   nextPrayerTime: {
     fontSize: 48,
-    fontWeight: 'bold',
-    color: Colors.background,
-    marginBottom: 12,
+    fontWeight: '300',
+    color: '#FFFFFF',
+    letterSpacing: -2,
+    marginBottom: 16,
   },
   timeLeftBadge: {
-    backgroundColor: Colors.background,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   timeLeftText: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.gold,
+    color: '#FFFFFF',
   },
+  
+  // Quick Actions - iOS Grid
   quickActions: {
     flexDirection: 'row',
+    paddingHorizontal: 20,
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 28,
   },
   actionCard: {
     flex: 1,
-    backgroundColor: Colors.cardDark,
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 18,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.darkGreen,
+    ...Shadows.card,
   },
   actionIcon: {
-    marginBottom: 8,
+    marginBottom: 10,
   },
   actionText: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '600',
     color: Colors.textPrimary,
     textAlign: 'center',
   },
+  
+  // Verse Card - Акцент с зелёным
   verseCard: {
-    backgroundColor: Colors.mediumGreen,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: Colors.gold,
+    backgroundColor: Colors.greenBackground,
+    borderRadius: 20,
+    padding: 24,
+    marginHorizontal: 20,
+    marginBottom: 28,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.green,
+    ...Shadows.card,
   },
   verseTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.gold,
-    marginBottom: 12,
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primary,
+    marginBottom: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   verseArabic: {
     fontSize: 24,
-    color: Colors.gold,
+    color: Colors.primary,
     textAlign: 'center',
-    marginBottom: 12,
-    fontWeight: 'bold',
+    marginBottom: 16,
+    fontWeight: '700',
+    lineHeight: 38,
   },
   verseTranslation: {
     fontSize: 15,
     color: Colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 8,
-    lineHeight: 22,
+    marginBottom: 12,
+    lineHeight: 24,
+    fontWeight: '400',
   },
   verseReference: {
-    fontSize: 12,
+    fontSize: 13,
     color: Colors.textSecondary,
     textAlign: 'center',
-    fontStyle: 'italic',
+    fontWeight: '500',
   },
+  
+  // Section Headers
   section: {
-    marginBottom: 24,
+    marginBottom: 28,
+    paddingHorizontal: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.gold,
+    fontSize: 22,
+    fontWeight: '700',
+    color: Colors.textPrimary,
   },
   sectionLink: {
     fontSize: 14,
-    color: Colors.gold,
-    textDecorationLine: 'underline',
+    color: Colors.primary,
+    fontWeight: '600',
   },
+  
+  // Course Card - Clean White
   courseCard: {
-    backgroundColor: Colors.cardDark,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.darkGreen,
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    ...Shadows.card,
   },
   courseContent: {
     flexDirection: 'row',
@@ -325,14 +362,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   courseEmoji: {
-    fontSize: 32,
-    marginRight: 12,
+    fontSize: 34,
+    marginRight: 14,
   },
   courseInfo: {
     flex: 1,
   },
   courseTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
     color: Colors.textPrimary,
     marginBottom: 4,
@@ -340,33 +377,35 @@ const styles = StyleSheet.create({
   courseProgress: {
     fontSize: 13,
     color: Colors.textSecondary,
+    fontWeight: '500',
   },
+  
+  // Leaderboard Card
   leaderboardCard: {
-    backgroundColor: Colors.cardDark,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.darkGreen,
-    gap: 12,
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 18,
+    ...Shadows.card,
   },
   leaderboardItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    paddingVertical: 12,
+    gap: 14,
   },
   leaderboardRank: {
     fontSize: 24,
   },
   leaderboardName: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 16,
     color: Colors.textPrimary,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   leaderboardPoints: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: Colors.gold,
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.primary,
   },
 });
 
