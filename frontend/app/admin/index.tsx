@@ -122,18 +122,10 @@ export default function AdminPanel() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Управление контентом</Text>
 
-          <TouchableOpacity style={styles.menuItem}>
-            <View style={styles.menuIconContainer}>
-              <Ionicons name="videocam" size={24} color={Colors.primary} />
-            </View>
-            <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>Видео уроки</Text>
-              <Text style={styles.menuSubtitle}>Добавить / Редактировать уроки</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/admin/review?type=homework')}
+          >
             <View style={styles.menuIconContainer}>
               <Ionicons name="clipboard" size={24} color={Colors.primary} />
             </View>
@@ -144,13 +136,27 @@ export default function AdminPanel() {
             <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/admin/review?type=questions')}
+          >
             <View style={styles.menuIconContainer}>
               <Ionicons name="help-circle" size={24} color={Colors.primary} />
             </View>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>Вопросы студентов</Text>
               <Text style={styles.menuSubtitle}>Ответить на вопросы ({stats.pending_questions})</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem}>
+            <View style={styles.menuIconContainer}>
+              <Ionicons name="videocam" size={24} color={Colors.primary} />
+            </View>
+            <View style={styles.menuContent}>
+              <Text style={styles.menuTitle}>Видео уроки</Text>
+              <Text style={styles.menuSubtitle}>Добавить / Редактировать уроки</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
           </TouchableOpacity>
@@ -182,7 +188,10 @@ export default function AdminPanel() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Студенты</Text>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/admin/students')}
+          >
             <View style={styles.menuIconContainer}>
               <Ionicons name="people" size={24} color={Colors.green} />
             </View>

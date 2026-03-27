@@ -17,8 +17,8 @@ export default function WelcomeScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!phone.trim() || phone.trim().length < 10) {
-      Alert.alert('Ошибка', 'Введите корректный номер телефона (минимум 10 цифр)');
+    if (!phone.trim()) {
+      Alert.alert('Ошибка', 'Введите номер телефона');
       return;
     }
 

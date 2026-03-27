@@ -120,6 +120,64 @@ class CompleteLessonResponse(BaseModel):
     points_earned: int
     next_unlock_date: Optional[str] = None
 
+# Homework Models
+class HomeworkTask(BaseModel):
+    id: str
+    lesson_id: str
+    title: str
+    description: str
+    image_url: Optional[str] = None
+    max_audio_duration: int = 300  # seconds
+    created_at: str
+
+class HomeworkSubmission(BaseModel):
+    id: str
+    user_id: str
+    homework_id: str
+    audio_url: Optional[str] = None
+    photo_urls: List[str] = []
+    submitted_at: str
+    status: str  # pending, reviewed
+    grade: Optional[int] = None
+    teacher_comment: Optional[str] = None
+
+class SubmitHomeworkRequest(BaseModel):
+    user_id: str
+    homework_id: str
+    audio_base64: Optional[str] = None
+    photos_base64: List[str] = []
+
+class SubmitHomeworkResponse(BaseModel):
+    success: bool
+    submission_id: str
+    message: str
+
+# Admin Models
+class StudentProgress(BaseModel):
+    user_id: str
+    display_name: str
+    phone: str
+    total_lessons: int
+    completed_lessons: int
+    progress_percentage: int
+    points: int
+    pending_homeworks: int
+    pending_questions: int
+
+class HomeworkReview(BaseModel):
+    submission_id: str
+    user_name: str
+    homework_title: str
+    submitted_at: str
+    audio_url: Optional[str]
+    photo_urls: List[str]
+    status: str
+
+class ReviewHomeworkRequest(BaseModel):
+    submission_id: str
+    grade: int
+    comment: str
+
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
 async def root():
@@ -628,6 +686,352 @@ async def complete_lesson(lesson_id: str, request: CompleteLessonRequest):
         logger.error(f"Error completing lesson: {e}")
         import traceback
         traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== HOMEWORK API ==========
+@api_router.get("/homework/{lesson_id}")
+async def get_homework(lesson_id: str):
+    """Get homework task for a specific lesson"""
+    try:
+        response = supabase.table('homework_tasks').select('*').eq('lesson_id', lesson_id).execute()
+        
+        if not response.data or len(response.data) == 0:
+            # Return empty if no homework for this lesson
+            return {"homework": None}
+        
+        homework = response.data[0]
+        return {
+            "homework": {
+                "id": str(homework.get('id', '')),
+                "lesson_id": lesson_id,
+                "title": homework.get('title', 'Домашнее задание'),
+                "description": homework.get('description', ''),
+                "image_url": homework.get('image_url'),
+                "max_audio_duration": homework.get('max_audio_duration', 300),
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error fetching homework: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/homework/submit", response_model=SubmitHomeworkResponse)
+async def submit_homework(request: SubmitHomeworkRequest):
+    """Submit homework with audio and photos"""
+    try:
+        import base64
+        from io import BytesIO
+        
+        user_id = request.user_id
+        homework_id = request.homework_id
+        
+        # Get user's telegram_id
+        user_response = supabase.table('users').select('telegram_id, display_name').eq('id', user_id).execute()
+        
+        if not user_response.data or len(user_response.data) == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        telegram_id = user_response.data[0].get('telegram_id')
+        display_name = user_response.data[0].get('display_name', 'Студент')
+        
+        # Upload files to Supabase Storage (simplified - using file_id storage)
+        audio_url = None
+        photo_urls = []
+        
+        # For now, we'll store base64 directly or file references
+        # In production, decode base64 and upload to Supabase Storage
+        if request.audio_base64:
+            # Simplified: store reference or upload to storage
+            audio_url = f"audio_{user_id}_{homework_id}_{datetime.now().timestamp()}"
+        
+        if request.photos_base64:
+            for idx, photo_b64 in enumerate(request.photos_base64):
+                photo_url = f"photo_{user_id}_{homework_id}_{idx}_{datetime.now().timestamp()}"
+                photo_urls.append(photo_url)
+        
+        # Create submission record
+        submission_data = {
+            'telegram_id': telegram_id,
+            'homework_id': homework_id,
+            'audio_file_id': audio_url,
+            'photo_file_ids': photo_urls,
+            'submitted_at': datetime.now().isoformat(),
+            'status': 'pending',
+            'created_at': datetime.now().isoformat(),
+        }
+        
+        submission_response = supabase.table('homeworks').insert(submission_data).execute()
+        
+        if not submission_response.data or len(submission_response.data) == 0:
+            raise HTTPException(status_code=500, detail="Failed to create submission")
+        
+        submission_id = str(submission_response.data[0].get('id', ''))
+        
+        return SubmitHomeworkResponse(
+            success=True,
+            submission_id=submission_id,
+            message="Домашнее задание отправлено на проверку!",
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error submitting homework: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/homework/submissions")
+async def get_pending_homeworks(user_id: str = Query(None), status: str = Query("pending")):
+    """Get homework submissions (for admin or user)"""
+    try:
+        query = supabase.table('homeworks').select('*')
+        
+        if user_id:
+            # Get user's telegram_id
+            user_response = supabase.table('users').select('telegram_id').eq('id', user_id).execute()
+            if user_response.data and len(user_response.data) > 0:
+                telegram_id = user_response.data[0].get('telegram_id')
+                query = query.eq('telegram_id', telegram_id)
+        
+        if status:
+            query = query.eq('status', status)
+        
+        response = query.order('submitted_at', desc=True).execute()
+        
+        submissions = []
+        for hw in (response.data or []):
+            # Get user info
+            user_info = supabase.table('users').select('display_name').eq('telegram_id', hw.get('telegram_id')).execute()
+            user_name = user_info.data[0].get('display_name', 'Студент') if user_info.data else 'Студент'
+            
+            # Get homework task info
+            task_info = supabase.table('homework_tasks').select('title').eq('id', hw.get('homework_id')).execute()
+            hw_title = task_info.data[0].get('title', 'Задание') if task_info.data else 'Задание'
+            
+            submissions.append({
+                'id': str(hw.get('id', '')),
+                'user_name': user_name,
+                'homework_title': hw_title,
+                'submitted_at': hw.get('submitted_at', ''),
+                'audio_url': hw.get('audio_file_id'),
+                'photo_urls': hw.get('photo_file_ids', []),
+                'status': hw.get('status', 'pending'),
+                'grade': hw.get('grade'),
+                'teacher_comment': hw.get('teacher_comment'),
+            })
+        
+        return {"submissions": submissions}
+        
+    except Exception as e:
+        logger.error(f"Error fetching submissions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/homework/review")
+async def review_homework(request: ReviewHomeworkRequest):
+    """Admin: Review and grade homework"""
+    try:
+        submission_id = request.submission_id
+        grade = request.grade
+        comment = request.comment
+        
+        # Update submission
+        update_data = {
+            'status': 'reviewed',
+            'grade': grade,
+            'teacher_comment': comment,
+            'reviewed_at': datetime.now().isoformat(),
+        }
+        
+        response = supabase.table('homeworks').update(update_data).eq('id', submission_id).execute()
+        
+        if not response.data or len(response.data) == 0:
+            raise HTTPException(status_code=404, detail="Submission not found")
+        
+        # Award points based on grade
+        submission = response.data[0]
+        telegram_id = submission.get('telegram_id')
+        
+        # Get user_id from telegram_id
+        user_response = supabase.table('users').select('id, points').eq('telegram_id', telegram_id).execute()
+        
+        if user_response.data and len(user_response.data) > 0:
+            user_data = user_response.data[0]
+            current_points = user_data.get('points', 0) or 0
+            
+            # Award points: grade / 10 (max 10 points for grade 100)
+            points_earned = max(0, int(grade / 10))
+            new_points = current_points + points_earned
+            
+            supabase.table('users').update({'points': new_points}).eq('id', user_data.get('id')).execute()
+        
+        return {
+            "success": True,
+            "message": "Домашнее задание проверено",
+            "grade": grade,
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error reviewing homework: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== ADMIN API ==========
+@api_router.get("/admin/stats")
+async def get_admin_stats():
+    """Get admin dashboard statistics"""
+    try:
+        # Count users
+        users_response = supabase.table('users').select('id', count='exact').execute()
+        total_users = users_response.count or 0
+        
+        # Count pending homeworks
+        hw_response = supabase.table('homeworks').select('id', count='exact').eq('status', 'pending').execute()
+        pending_homeworks = hw_response.count or 0
+        
+        # Count pending questions
+        qa_response = supabase.table('sheikh_questions').select('id', count='exact').eq('status', 'pending').execute()
+        pending_questions = qa_response.count or 0
+        
+        # Active users (simplified - users with recent activity)
+        active_today = max(1, int(total_users * 0.3))  # Mock data
+        active_week = max(1, int(total_users * 0.6))   # Mock data
+        
+        return {
+            "total_users": total_users,
+            "active_today": active_today,
+            "active_week": active_week,
+            "pending_questions": pending_questions,
+            "pending_homeworks": pending_homeworks,
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching admin stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/admin/students")
+async def get_students_list():
+    """Get list of all students with progress"""
+    try:
+        # Get all users with phone (registered students)
+        users_response = supabase.table('users').select('*').execute()
+        
+        students = []
+        for user in (users_response.data or []):
+            if not user.get('phone'):
+                continue  # Skip users without phone (Telegram-only)
+            
+            user_id = str(user.get('id', ''))
+            telegram_id = user.get('telegram_id')
+            
+            # Count completed lessons
+            completed_lessons = 0
+            if telegram_id:
+                progress_response = supabase.table('course_progress').select('*').eq('telegram_id', telegram_id).execute()
+                for prog in (progress_response.data or []):
+                    current_lesson = prog.get('current_lesson', 1)
+                    completed_lessons += max(0, current_lesson - 1)
+            
+            # Count total lessons
+            total_lessons_response = supabase.table('video_lessons').select('id', count='exact').execute()
+            total_lessons = total_lessons_response.count or 0
+            
+            # Count pending homeworks
+            pending_hw = 0
+            if telegram_id:
+                hw_response = supabase.table('homeworks').select('id', count='exact').eq('telegram_id', telegram_id).eq('status', 'pending').execute()
+                pending_hw = hw_response.count or 0
+            
+            # Count pending questions
+            pending_questions = 0
+            if telegram_id:
+                qa_response = supabase.table('sheikh_questions').select('id', count='exact').eq('telegram_id', telegram_id).eq('status', 'pending').execute()
+                pending_questions = qa_response.count or 0
+            
+            progress_pct = int((completed_lessons / total_lessons * 100)) if total_lessons > 0 else 0
+            
+            students.append({
+                'user_id': user_id,
+                'display_name': user.get('display_name', 'Студент'),
+                'phone': user.get('phone', ''),
+                'total_lessons': total_lessons,
+                'completed_lessons': completed_lessons,
+                'progress_percentage': progress_pct,
+                'points': user.get('points', 0) or 0,
+                'pending_homeworks': pending_hw,
+                'pending_questions': pending_questions,
+            })
+        
+        return {"students": students}
+        
+    except Exception as e:
+        logger.error(f"Error fetching students: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/admin/questions")
+async def get_pending_questions(status: str = Query("pending")):
+    """Get pending questions from students"""
+    try:
+        query = supabase.table('sheikh_questions').select('*')
+        query = query.eq('status', status)
+        
+        response = query.order('created_at', desc=True).execute()
+        
+        questions = []
+        for q in (response.data or []):
+            # Get user info
+            user_info = supabase.table('users').select('display_name').eq('telegram_id', q.get('telegram_id')).execute()
+            user_name = user_info.data[0].get('display_name', 'Студент') if user_info.data else 'Студент'
+            
+            questions.append({
+                'id': str(q.get('id', '')),
+                'user_name': user_name,
+                'question': q.get('question', ''),
+                'created_at': q.get('created_at', ''),
+                'status': q.get('status', 'pending'),
+                'answer': q.get('answer'),
+            })
+        
+        return {"questions": questions}
+        
+    except Exception as e:
+        logger.error(f"Error fetching questions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/admin/answer-question")
+async def answer_question(question_id: str, answer: str):
+    """Admin: Answer a student's question"""
+    try:
+        update_data = {
+            'status': 'answered',
+            'answer': answer,
+            'answered_at': datetime.now().isoformat(),
+        }
+        
+        response = supabase.table('sheikh_questions').update(update_data).eq('id', question_id).execute()
+        
+        if not response.data or len(response.data) == 0:
+            raise HTTPException(status_code=404, detail="Question not found")
+        
+        return {
+            "success": True,
+            "message": "Ответ отправлен студенту",
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error answering question: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
