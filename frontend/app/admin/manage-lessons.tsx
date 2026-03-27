@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { Colors, Shadows } from '../../constants/colors';
 
 type Lesson = {
@@ -41,6 +42,70 @@ export default function ManageLessonsScreen() {
   const [videoFileId, setVideoFileId] = useState('');
   const [audioFileId, setAudioFileId] = useState('');
   const [pdfFileId, setPdfFileId] = useState('');
+  
+  // File upload states
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  
+  useEffect(() => {
+    fetchLessons();
+  }, []);
+  
+  const uploadFile = async (uri: string, type: 'video' | 'audio' | 'photo') => {
+    try {
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      const blob = await fetch(uri).then(r => r.blob());
+      
+      const formData = new FormData();
+      formData.append('file', blob as any);
+      
+      const response = await fetch(`${backendUrl}/api/upload/${type}`, {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+      
+      const data = await response.json();
+      return data.file_url;
+    } catch (error) {
+      console.error(`${type} upload error:`, error);
+      throw error;
+    }
+  };
+  
+  const pickVideo = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        allowsEditing: false,
+        quality: 1,
+      });
+      
+      if (!result.canceled && result.assets[0]) {
+        setUploadingVideo(true);
+        const url = await uploadFile(result.assets[0].uri, 'video');
+        setVideoFileId(url);
+        Alert.alert('Успешно!', 'Видео загружено');
+      }
+    } catch (error: any) {
+      Alert.alert('Ошибка', 'Не удалось загрузить видео');
+    } finally {
+      setUploadingVideo(false);
+    }
+  };
+  
+  const pickAudio = async () => {
+    try {
+      // Note: Expo ImagePicker doesn't support audio, so we'll use text input
+      Alert.alert('Аудио', 'Введите URL или file_id вручную');
+    } catch (error: any) {
+      Alert.alert('Ошибка', 'Не удалось загрузить аудио');
+    }
+  };
   
   useEffect(() => {
     fetchLessons();
@@ -331,18 +396,32 @@ export default function ManageLessonsScreen() {
                 ))}
               </View>
               
-              <Text style={styles.sectionTitle}>Файлы (ID из Telegram или URL)</Text>
+              <Text style={styles.sectionTitle}>Файлы</Text>
               
-              <Text style={styles.label}>Видео File ID</Text>
-              <TextInput
-                style={styles.input}
-                value={videoFileId}
-                onChangeText={setVideoFileId}
-                placeholder="Telegram file_id или URL"
-                placeholderTextColor={Colors.textSecondary}
-              />
+              <Text style={styles.label}>Видео File ID или URL</Text>
+              <View style={styles.fileInputRow}>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  value={videoFileId}
+                  onChangeText={setVideoFileId}
+                  placeholder="Telegram file_id или URL"
+                  placeholderTextColor={Colors.textSecondary}
+                  editable={!uploadingVideo}
+                />
+                <TouchableOpacity
+                  style={[styles.uploadButton, uploadingVideo && styles.uploadButtonDisabled]}
+                  onPress={pickVideo}
+                  disabled={uploadingVideo}
+                >
+                  {uploadingVideo ? (
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                  ) : (
+                    <Ionicons name="cloud-upload" size={20} color={Colors.primary} />
+                  )}
+                </TouchableOpacity>
+              </View>
               
-              <Text style={styles.label}>Аудио File ID</Text>
+              <Text style={styles.label}>Аудио File ID или URL</Text>
               <TextInput
                 style={styles.input}
                 value={audioFileId}
@@ -351,7 +430,7 @@ export default function ManageLessonsScreen() {
                 placeholderTextColor={Colors.textSecondary}
               />
               
-              <Text style={styles.label}>PDF File ID</Text>
+              <Text style={styles.label}>PDF File ID или URL</Text>
               <TextInput
                 style={styles.input}
                 value={pdfFileId}
@@ -620,5 +699,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  
+  fileInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  uploadButton: {
+    width: 48,
+    height: 48,
+    backgroundColor: Colors.goldBackground,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  uploadButtonDisabled: {
+    opacity: 0.5,
   },
 });

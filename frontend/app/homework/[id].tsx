@@ -189,15 +189,60 @@ export default function HomeworkScreen() {
     try {
       const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
       
-      // In production, convert files to base64 or use FormData
+      let uploadedAudioUrl = null;
+      let uploadedPhotoUrls: string[] = [];
+      
+      // Upload audio if exists
+      if (audioUri) {
+        try {
+          const audioBlob = await fetch(audioUri).then(r => r.blob());
+          const formData = new FormData();
+          formData.append('file', audioBlob as any, 'audio.mp3');
+          
+          const audioResponse = await fetch(`${backendUrl}/api/upload/audio`, {
+            method: 'POST',
+            body: formData,
+          });
+          
+          if (audioResponse.ok) {
+            const audioData = await audioResponse.json();
+            uploadedAudioUrl = audioData.file_url;
+          }
+        } catch (error) {
+          console.error('Audio upload error:', error);
+        }
+      }
+      
+      // Upload photos
+      for (const photoUri of photos) {
+        try {
+          const photoBlob = await fetch(photoUri).then(r => r.blob());
+          const formData = new FormData();
+          formData.append('file', photoBlob as any, 'photo.jpg');
+          
+          const photoResponse = await fetch(`${backendUrl}/api/upload/photo`, {
+            method: 'POST',
+            body: formData,
+          });
+          
+          if (photoResponse.ok) {
+            const photoData = await photoResponse.json();
+            uploadedPhotoUrls.push(photoData.file_url);
+          }
+        } catch (error) {
+          console.error('Photo upload error:', error);
+        }
+      }
+      
+      // Submit homework with uploaded URLs
       const response = await fetch(`${backendUrl}/api/homework/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: user?.id,
           homework_id: homework?.id,
-          audio_base64: audioUri ? 'audio_placeholder' : null,
-          photos_base64: photos.map(() => 'photo_placeholder'),
+          audio_base64: uploadedAudioUrl,
+          photos_base64: uploadedPhotoUrls,
         }),
       });
       
