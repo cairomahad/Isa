@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Shadows } from '../../constants/colors';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../../store/authStore';
 
 type AdminStats = {
   total_users: number;
