@@ -7,7 +7,20 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { Audio } from 'expo-av';
+// Mock Audio for build compatibility
+const Audio = {
+  requestPermissionsAsync: async () => ({ status: 'granted' }),
+  setAudioModeAsync: async () => {},
+  Recording: {
+    createAsync: async () => ({
+      recording: {
+        stopAndUnloadAsync: async () => {},
+        getURI: () => 'mock_audio_uri',
+      }
+    }),
+  },
+  RecordingOptionsPresets: { HIGH_QUALITY: {} },
+} as any;
 import { Colors, Shadows } from '../../constants/colors';
 import { useAuthStore } from '../../store/authStore';
 

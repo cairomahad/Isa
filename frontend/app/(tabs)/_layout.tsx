@@ -68,6 +68,14 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="quran"
+        options={{
+          title: 'Коран',
+          tabBarIcon: ({ color }) => <TabIcon name="book" color={color} />,
+          tabBarTestID: 'tab-quran',
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: 'Ещё',

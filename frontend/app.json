@@ -6,16 +6,40 @@
     "orientation": "portrait",
     "icon": "./assets/images/mosque-logo.png",
     "scheme": "tazakkur",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tazakkur.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Tazakkur needs access to your microphone to record audio for homework assignments.",
+        "NSCameraUsageDescription": "Tazakkur needs access to your camera to take photos for homework assignments.",
+        "NSPhotoLibraryUsageDescription": "Tazakkur needs access to your photo library to select photos for homework assignments.",
+        "NSPhotoLibraryAddUsageDescription": "Tazakkur needs permission to save photos to your library."
+      }
     },
     "android": {
+      "package": "com.tazakkur.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#000"
+        "backgroundColor": "#FFFFFF"
       },
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ],
       "edgeToEdgeEnabled": true
     },
     "web": {
@@ -31,14 +55,26 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#000"
+          "backgroundColor": "#FFFFFF"
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Tazakkur needs access to your photos for homework assignments.",
+          "cameraPermission": "Tazakkur needs access to your camera for homework assignments."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "tazakkur-islamic-app"
+      }
     }
   }
 }

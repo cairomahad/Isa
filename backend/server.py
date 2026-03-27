@@ -1035,6 +1035,289 @@ async def answer_question(question_id: str, answer: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ========== QURAN PROGRAM API ==========
+# List of 114 Surahs (simplified)
+SURAHS = [
+    {"number": 1, "name": "Аль-Фатиха", "name_ar": "الفاتحة", "ayahs": 7},
+    {"number": 2, "name": "Аль-Бакара", "name_ar": "البقرة", "ayahs": 286},
+    {"number": 3, "name": "Али Имран", "name_ar": "آل عمران", "ayahs": 200},
+    {"number": 110, "name": "Ан-Наср", "name_ar": "النصر", "ayahs": 3},
+    {"number": 111, "name": "Аль-Масад", "name_ar": "المسد", "ayahs": 5},
+    {"number": 112, "name": "Аль-Ихлас", "name_ar": "الإخلاص", "ayahs": 4},
+    {"number": 113, "name": "Аль-Фаляк", "name_ar": "الفلق", "ayahs": 5},
+    {"number": 114, "name": "Ан-Нас", "name_ar": "الناس", "ayahs": 6},
+]
+
+@api_router.get("/quran/surahs")
+async def get_surahs():
+    """Get list of all surahs"""
+    return {"surahs": SURAHS}
+
+
+@api_router.get("/quran/program")
+async def get_quran_program(user_id: str = Query(...)):
+    """Get user's Quran learning program"""
+    try:
+        # Get user's telegram_id
+        user_response = supabase.table('users').select('telegram_id').eq('id', user_id).execute()
+        
+        if not user_response.data or len(user_response.data) == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        telegram_id = user_response.data[0].get('telegram_id')
+        
+        # Get user's program
+        program_response = supabase.table('quran_program').select('*').eq('telegram_id', telegram_id).execute()
+        
+        if not program_response.data or len(program_response.data) == 0:
+            # Create default program
+            return {
+                "has_program": False,
+                "current_surah": 114,  # Start with short surahs
+                "current_ayah": 1,
+                "study_week": 1,
+            }
+        
+        program = program_response.data[0]
+        
+        # Get learned ayahs count
+        progress_response = supabase.table('quran_progress').select('*', count='exact').eq('telegram_id', telegram_id).execute()
+        learned_count = progress_response.count or 0
+        
+        # Get reviews due today
+        today = datetime.now().strftime('%Y-%m-%d')
+        reviews_response = supabase.table('quran_reviews').select('*').eq('telegram_id', telegram_id).eq('due_date', today).eq('completed', False).execute()
+        reviews_due = reviews_response.data or []
+        
+        return {
+            "has_program": True,
+            "current_surah": program.get('current_surah', 114),
+            "current_ayah": program.get('current_ayah', 1),
+            "study_week": program.get('study_week', 1),
+            "learned_count": learned_count,
+            "reviews_due_today": len(reviews_due),
+            "last_lesson_date": program.get('last_lesson_date'),
+            "last_review_date": program.get('last_review_date'),
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching quran program: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/quran/start-program")
+async def start_quran_program(user_id: str, surah_number: int):
+    """Start Quran learning program"""
+    try:
+        user_response = supabase.table('users').select('telegram_id').eq('id', user_id).execute()
+        
+        if not user_response.data or len(user_response.data) == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        telegram_id = user_response.data[0].get('telegram_id')
+        
+        # Create program
+        program_data = {
+            'telegram_id': telegram_id,
+            'is_active': True,
+            'started_at': datetime.now().isoformat(),
+            'study_week': 1,
+            'current_surah': surah_number,
+            'current_ayah': 1,
+            'evening_hour': 19,
+            'morning_hour': 10,
+            'last_lesson_date': datetime.now().strftime('%Y-%m-%d'),
+            'created_at': datetime.now().isoformat(),
+        }
+        
+        supabase.table('quran_program').insert(program_data).execute()
+        
+        return {
+            "success": True,
+            "message": "Программа изучения Корана запущена!",
+            "surah_number": surah_number,
+        }
+        
+    except Exception as e:
+        logger.error(f"Error starting program: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/quran/learn-ayah")
+async def learn_ayah(user_id: str, surah: int, ayah: int):
+    """Mark ayah as learned"""
+    try:
+        user_response = supabase.table('users').select('telegram_id').eq('id', user_id).execute()
+        
+        if not user_response.data or len(user_response.data) == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        telegram_id = user_response.data[0].get('telegram_id')
+        
+        # Check if already learned
+        existing = supabase.table('quran_progress').select('*').eq('telegram_id', telegram_id).eq('surah', surah).eq('ayah', ayah).execute()
+        
+        if existing.data and len(existing.data) > 0:
+            return {
+                "success": True,
+                "message": "Аят уже отмечен как выученный",
+                "already_learned": True,
+            }
+        
+        # Get program info
+        program_response = supabase.table('quran_program').select('study_week').eq('telegram_id', telegram_id).execute()
+        study_week = program_response.data[0].get('study_week', 1) if program_response.data else 1
+        
+        # Save progress
+        progress_data = {
+            'telegram_id': telegram_id,
+            'surah': surah,
+            'ayah': ayah,
+            'learned_at': datetime.now().isoformat(),
+            'review_count': 0,
+            'status': 'reviewing',
+            'week_learned': study_week,
+            'created_at': datetime.now().isoformat(),
+        }
+        
+        supabase.table('quran_progress').insert(progress_data).execute()
+        
+        # Create review schedule: 1 day, 3 days, 7 days, 14 days
+        review_dates = [1, 3, 7, 14]
+        for idx, days in enumerate(review_dates):
+            due_date = (datetime.now() + timedelta(days=days)).strftime('%Y-%m-%d')
+            review_data = {
+                'telegram_id': telegram_id,
+                'surah': surah,
+                'ayah': ayah,
+                'due_date': due_date,
+                'review_number': idx + 1,
+                'completed': False,
+                'created_at': datetime.now().isoformat(),
+            }
+            supabase.table('quran_reviews').insert(review_data).execute()
+        
+        # Award points
+        points_response = supabase.table('users').select('points').eq('id', user_id).execute()
+        if points_response.data:
+            current_points = points_response.data[0].get('points', 0) or 0
+            new_points = current_points + 5
+            supabase.table('users').update({'points': new_points}).eq('id', user_id).execute()
+        
+        # Update program
+        supabase.table('quran_program').update({
+            'current_ayah': ayah + 1,
+            'last_lesson_date': datetime.now().strftime('%Y-%m-%d'),
+        }).eq('telegram_id', telegram_id).execute()
+        
+        return {
+            "success": True,
+            "message": "Аят выучен! +5 очков",
+            "points_earned": 5,
+            "next_review": review_dates[0],
+        }
+        
+    except Exception as e:
+        logger.error(f"Error learning ayah: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/quran/review-ayah")
+async def review_ayah(user_id: str, surah: int, ayah: int):
+    """Mark ayah as reviewed"""
+    try:
+        user_response = supabase.table('users').select('telegram_id').eq('id', user_id).execute()
+        
+        if not user_response.data or len(user_response.data) == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        telegram_id = user_response.data[0].get('telegram_id')
+        
+        # Find pending review
+        today = datetime.now().strftime('%Y-%m-%d')
+        review_response = supabase.table('quran_reviews').select('*').eq('telegram_id', telegram_id).eq('surah', surah).eq('ayah', ayah).eq('due_date', today).eq('completed', False).execute()
+        
+        if review_response.data and len(review_response.data) > 0:
+            review = review_response.data[0]
+            
+            # Mark as completed
+            supabase.table('quran_reviews').update({
+                'completed': True,
+                'completed_at': datetime.now().isoformat(),
+            }).eq('id', review.get('id')).execute()
+            
+            # Update progress
+            supabase.table('quran_progress').update({
+                'review_count': (review.get('review_number', 0)),
+                'status': 'learned' if review.get('review_number', 0) >= 4 else 'reviewing',
+            }).eq('telegram_id', telegram_id).eq('surah', surah).eq('ayah', ayah).execute()
+            
+            # Award points
+            points_response = supabase.table('users').select('points').eq('id', user_id).execute()
+            if points_response.data:
+                current_points = points_response.data[0].get('points', 0) or 0
+                new_points = current_points + 2
+                supabase.table('users').update({'points': new_points}).eq('id', user_id).execute()
+            
+            return {
+                "success": True,
+                "message": "Повторение завершено! +2 очка",
+                "points_earned": 2,
+                "review_number": review.get('review_number', 0),
+            }
+        else:
+            return {
+                "success": False,
+                "message": "Нет запланированного повторения на сегодня",
+            }
+        
+    except Exception as e:
+        logger.error(f"Error reviewing ayah: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/quran/reviews-today")
+async def get_reviews_today(user_id: str = Query(...)):
+    """Get ayahs to review today"""
+    try:
+        user_response = supabase.table('users').select('telegram_id').eq('id', user_id).execute()
+        
+        if not user_response.data or len(user_response.data) == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        telegram_id = user_response.data[0].get('telegram_id')
+        
+        today = datetime.now().strftime('%Y-%m-%d')
+        reviews_response = supabase.table('quran_reviews').select('*').eq('telegram_id', telegram_id).eq('due_date', today).eq('completed', False).execute()
+        
+        reviews = []
+        for review in (reviews_response.data or []):
+            surah_num = review.get('surah')
+            ayah_num = review.get('ayah')
+            
+            # Find surah name
+            surah_info = next((s for s in SURAHS if s['number'] == surah_num), None)
+            surah_name = surah_info['name'] if surah_info else f"Сура {surah_num}"
+            
+            reviews.append({
+                'id': str(review.get('id', '')),
+                'surah': surah_num,
+                'ayah': ayah_num,
+                'surah_name': surah_name,
+                'review_number': review.get('review_number', 1),
+            })
+        
+        return {"reviews": reviews}
+        
+    except Exception as e:
+        logger.error(f"Error fetching reviews: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
