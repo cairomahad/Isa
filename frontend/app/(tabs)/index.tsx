@@ -1,6 +1,6 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  FlatList, ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'expo-router';
@@ -10,126 +10,25 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { Colors, Shadows } from '../../constants/colors';
 
-type Lesson = {
-  id: string;
-  title: string;
-  description: string;
-  video_url: string;
-  course_type: string;
-  order_num: number;
-  is_locked: boolean;
+const DAILY_VERSE = {
+  arabic: 'إِنَّ مَعَ الْعُسْرِ يُسْرًا',
+  translation: 'Поистине, вместе с трудностью приходит лёгкость',
+  reference: 'Коран 94:6',
 };
 
-type CourseGroup = {
-  type: string;
-  label: string;
-  emoji: string;
-  lessons: Lesson[];
-  progress: number;
-  total: number;
-  completed: number;
-};
-
-const COURSE_LABELS: Record<string, { label: string; emoji: string }> = {
-  shafi: { label: 'Шафиитский мазхаб', emoji: '📘' },
-  hanafi: { label: 'Ханафитский мазхаб', emoji: '📗' },
-  arabic: { label: 'Арабский язык', emoji: '🔤' },
-  family: { label: 'Семейные отношения', emoji: '🏠' },
-  general: { label: 'Обязательные знания', emoji: '📚' },
-};
-
-function ProgressBar({ value }: { value: number }) {
-  return (
-    <View style={styles.progressTrack}>
-      <View style={[styles.progressFill, { width: `${value}%` }]} />
-    </View>
-  );
-}
-
-export default function LessonsScreen() {
+export default function HomeScreen() {
   const router = useRouter();
   const { session, user } = useAuthStore();
-  const [courseGroups, setCourseGroups] = useState<CourseGroup[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [nextPrayer, setNextPrayer] = useState({ name: 'Зухр', time: '13:24', timeLeft: '2ч 15м' });
+  const [userPoints, setUserPoints] = useState(740);
 
-  const fetchLessons = useCallback(async () => {
-    try {
-      const { data: lessons } = await supabase
-        .from('video_lessons')
-        .select('*')
-        .order('order_num');
-
-      if (!lessons || lessons.length === 0) {
-        // Show demo data
-        setCourseGroups(DEMO_COURSES);
-        return;
-      }
-
-      // Group by course_type
-      const groups: Record<string, Lesson[]> = {};
-      lessons.forEach((l: Lesson) => {
-        const type = l.course_type || 'general';
-        if (!groups[type]) groups[type] = [];
-        groups[type].push(l);
-      });
-
-      // Get user progress
-      let progressMap: Record<string, string> = {};
-      if (session?.user?.id) {
-        const { data: progress } = await supabase
-          .from('course_progress')
-          .select('lesson_id, status')
-          .eq('user_id', session.user.id);
-        if (progress) {
-          progress.forEach((p: any) => {
-            progressMap[p.lesson_id] = p.status;
-          });
-        }
-      }
-
-      const result: CourseGroup[] = Object.entries(groups).map(([type, lessonList]) => {
-        const completed = lessonList.filter(
-          (l) => progressMap[l.id] === 'completed'
-        ).length;
-        const info = COURSE_LABELS[type] || { label: type, emoji: '📚' };
-        return {
-          type,
-          label: info.label,
-          emoji: info.emoji,
-          lessons: lessonList,
-          total: lessonList.length,
-          completed,
-          progress: lessonList.length > 0 ? Math.round((completed / lessonList.length) * 100) : 0,
-        };
-      });
-
-      setCourseGroups(result);
-    } catch (err) {
-      console.warn(err);
-      setCourseGroups(DEMO_COURSES);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [session]);
-
-  useEffect(() => {
-    fetchLessons();
-  }, [fetchLessons]);
-
-  const onRefresh = () => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchLessons();
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={Colors.gold} size="large" />
-      </View>
-    );
-  }
+    // Refresh data
+    setTimeout(() => setRefreshing(false), 1000);
+  }, []);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -140,60 +39,128 @@ export default function LessonsScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>Ассаляму алейкум,</Text>
-          <Text style={styles.name}>{user?.display_name || 'Студент'} 👋</Text>
+          <View>
+            <Text style={styles.greeting}>Ас-саляму алейкум,</Text>
+            <Text style={styles.name}>{user?.display_name || 'Брат'} 👋</Text>
+          </View>
+          <View style={styles.pointsBadge}>
+            <Ionicons name="star" size={18} color={Colors.gold} />
+            <Text style={styles.pointsText}>{userPoints}</Text>
+          </View>
         </View>
 
-        {/* Title */}
-        <Text style={styles.sectionTitle}>Мои курсы</Text>
+        {/* Next Prayer Card */}
+        <View style={styles.nextPrayerCard}>
+          <View style={styles.nextPrayerHeader}>
+            <Ionicons name="alarm" size={24} color={Colors.gold} />
+            <Text style={styles.nextPrayerTitle}>Следующий намаз</Text>
+          </View>
+          <Text style={styles.nextPrayerName}>{nextPrayer.name}</Text>
+          <Text style={styles.nextPrayerTime}>{nextPrayer.time}</Text>
+          <View style={styles.timeLeftBadge}>
+            <Text style={styles.timeLeftText}>через {nextPrayer.timeLeft}</Text>
+          </View>
+        </View>
 
-        {/* Courses */}
-        {courseGroups.map((group) => (
-          <View key={group.type} style={styles.courseCard} testID={`course-${group.type}`}>
-            <View style={styles.courseHeader}>
-              <Text style={styles.courseEmoji}>{group.emoji}</Text>
+        {/* Quick Actions */}
+        <View style={styles.quickActions}>
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => router.push('/zikr')}
+          >
+            <View style={styles.actionIcon}>
+              <Ionicons name="bead-outline" size={28} color={Colors.gold} />
+            </View>
+            <Text style={styles.actionText}>Зикр</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => router.push('/missed-prayers')}
+          >
+            <View style={styles.actionIcon}>
+              <Ionicons name="calendar" size={28} color={Colors.gold} />
+            </View>
+            <Text style={styles.actionText}>Возмещение</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => router.push('/qa')}
+          >
+            <View style={styles.actionIcon}>
+              <Ionicons name="chatbubbles" size={28} color={Colors.gold} />
+            </View>
+            <Text style={styles.actionText}>Спросить</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => router.push('/hadiths')}
+          >
+            <View style={styles.actionIcon}>
+              <Ionicons name="library" size={28} color={Colors.gold} />
+            </View>
+            <Text style={styles.actionText}>Хадисы</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Daily Verse */}
+        <View style={styles.verseCard}>
+          <Text style={styles.verseTitle}>Аят дня 📖</Text>
+          <Text style={styles.verseArabic}>{DAILY_VERSE.arabic}</Text>
+          <Text style={styles.verseTranslation}>{DAILY_VERSE.translation}</Text>
+          <Text style={styles.verseReference}>{DAILY_VERSE.reference}</Text>
+        </View>
+
+        {/* Continue Learning */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Продолжить обучение</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)')}>
+              <Text style={styles.sectionLink}>Все курсы</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity style={styles.courseCard}>
+            <View style={styles.courseContent}>
+              <Text style={styles.courseEmoji}>📘</Text>
               <View style={styles.courseInfo}>
-                <Text style={styles.courseLabel}>{group.label}</Text>
-                <Text style={styles.courseProgress}>
-                  {group.completed} из {group.total} уроков · {group.progress}%
-                </Text>
+                <Text style={styles.courseTitle}>Шафиитский мазхаб</Text>
+                <Text style={styles.courseProgress}>3 из 12 уроков · 25%</Text>
               </View>
             </View>
-            <ProgressBar value={group.progress} />
+            <Ionicons name="arrow-forward" size={20} color={Colors.gold} />
+          </TouchableOpacity>
+        </View>
 
-            {/* Lessons list */}
-            {group.lessons.slice(0, 4).map((lesson, idx) => (
-              <TouchableOpacity
-                key={lesson.id}
-                style={styles.lessonRow}
-                onPress={() => router.push(`/lesson/${lesson.id}`)}
-                testID={`lesson-${lesson.id}`}
-              >
-                <View style={[styles.lessonNum, lesson.is_locked && styles.lockedNum]}>
-                  {lesson.is_locked ? (
-                    <Ionicons name="lock-closed" size={12} color={Colors.textSecondary} />
-                  ) : (
-                    <Text style={styles.lessonNumText}>{idx + 1}</Text>
-                  )}
-                </View>
-                <Text style={[styles.lessonTitle, lesson.is_locked && styles.lockedText]}>
-                  {lesson.title}
-                </Text>
-                <Ionicons
-                  name={lesson.is_locked ? 'lock-closed' : 'play-circle'}
-                  size={20}
-                  color={lesson.is_locked ? Colors.textSecondary : Colors.gold}
-                />
-              </TouchableOpacity>
-            ))}
-
-            {group.lessons.length > 4 && (
-              <TouchableOpacity style={styles.moreBtn}>
-                <Text style={styles.moreBtnText}>Все уроки ({group.lessons.length})</Text>
-              </TouchableOpacity>
-            )}
+        {/* Leaderboard Preview */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Рейтинг</Text>
+            <TouchableOpacity onPress={() => router.push('/rating')}>
+              <Text style={styles.sectionLink}>Полный рейтинг</Text>
+            </TouchableOpacity>
           </View>
-        ))}
+
+          <View style={styles.leaderboardCard}>
+            <View style={styles.leaderboardItem}>
+              <Text style={styles.leaderboardRank}>🥇</Text>
+              <Text style={styles.leaderboardName}>Абдуллах</Text>
+              <Text style={styles.leaderboardPoints}>1,250</Text>
+            </View>
+            <View style={styles.leaderboardItem}>
+              <Text style={styles.leaderboardRank}>🥈</Text>
+              <Text style={styles.leaderboardName}>Мухаммад</Text>
+              <Text style={styles.leaderboardPoints}>980</Text>
+            </View>
+            <View style={styles.leaderboardItem}>
+              <Text style={styles.leaderboardRank}>🥉</Text>
+              <Text style={styles.leaderboardName}>Ахмад</Text>
+              <Text style={styles.leaderboardPoints}>850</Text>
+            </View>
+          </View>
+        </View>
 
         <View style={{ height: 20 }} />
       </ScrollView>
@@ -201,88 +168,205 @@ export default function LessonsScreen() {
   );
 }
 
-const DEMO_COURSES: CourseGroup[] = [
-  {
-    type: 'shafi',
-    label: 'Шафиитский мазхаб',
-    emoji: '📘',
-    completed: 3,
-    total: 12,
-    progress: 25,
-    lessons: [
-      { id: '1', title: 'Введение в фикх', description: '', video_url: '', course_type: 'shafi', order_num: 1, is_locked: false },
-      { id: '2', title: 'Основы тахарата', description: '', video_url: '', course_type: 'shafi', order_num: 2, is_locked: false },
-      { id: '3', title: 'Виды воды', description: '', video_url: '', course_type: 'shafi', order_num: 3, is_locked: false },
-      { id: '4', title: 'Условия намаза', description: '', video_url: '', course_type: 'shafi', order_num: 4, is_locked: false },
-    ],
-  },
-  {
-    type: 'arabic',
-    label: 'Арабский язык',
-    emoji: '🔤',
-    completed: 0,
-    total: 8,
-    progress: 0,
-    lessons: [
-      { id: '5', title: 'Введение в арабский', description: '', video_url: '', course_type: 'arabic', order_num: 1, is_locked: true },
-    ],
-  },
-];
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
-  center: { flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center' },
   scroll: { flex: 1, paddingHorizontal: 16 },
-  header: { paddingTop: 16, marginBottom: 20 },
+  header: {
+    paddingTop: 16,
+    marginBottom: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
   greeting: { fontSize: 14, color: Colors.textSecondary },
   name: { fontSize: 22, fontWeight: 'bold', color: Colors.textPrimary, marginTop: 2 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: Colors.gold, marginBottom: 16 },
-  courseCard: {
-    backgroundColor: Colors.cardDark,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: Colors.darkGreen,
-    ...Shadows.card,
-  },
-  courseHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  courseEmoji: { fontSize: 28, marginRight: 12 },
-  courseInfo: { flex: 1 },
-  courseLabel: { fontSize: 16, fontWeight: '600', color: Colors.textPrimary },
-  courseProgress: { fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
-  progressTrack: {
-    height: 6,
-    backgroundColor: Colors.darkGreen,
-    borderRadius: 3,
-    marginBottom: 16,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: 6,
-    backgroundColor: Colors.gold,
-    borderRadius: 3,
-  },
-  lessonRow: {
+  pointsBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: Colors.darkGreen,
+    backgroundColor: Colors.cardDark,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.darkGreen,
+    gap: 6,
   },
-  lessonNum: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: Colors.mediumGreen,
-    justifyContent: 'center',
+  pointsText: { fontSize: 18, fontWeight: 'bold', color: Colors.gold },
+  nextPrayerCard: {
+    backgroundColor: Colors.gold,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
     alignItems: 'center',
+    ...Shadows.card,
+  },
+  nextPrayerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  nextPrayerTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.background,
+  },
+  nextPrayerName: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: Colors.background,
+    marginBottom: 4,
+  },
+  nextPrayerTime: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: Colors.background,
+    marginBottom: 12,
+  },
+  timeLeftBadge: {
+    backgroundColor: Colors.background,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  timeLeftText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.gold,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  actionCard: {
+    flex: 1,
+    backgroundColor: Colors.cardDark,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.darkGreen,
+  },
+  actionIcon: {
+    marginBottom: 8,
+  },
+  actionText: {
+    fontSize: 12,
+    color: Colors.textPrimary,
+    textAlign: 'center',
+  },
+  verseCard: {
+    backgroundColor: Colors.mediumGreen,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: Colors.gold,
+  },
+  verseTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.gold,
+    marginBottom: 12,
+  },
+  verseArabic: {
+    fontSize: 24,
+    color: Colors.gold,
+    textAlign: 'center',
+    marginBottom: 12,
+    fontWeight: 'bold',
+  },
+  verseTranslation: {
+    fontSize: 15,
+    color: Colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 8,
+    lineHeight: 22,
+  },
+  verseReference: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.gold,
+  },
+  sectionLink: {
+    fontSize: 14,
+    color: Colors.gold,
+    textDecorationLine: 'underline',
+  },
+  courseCard: {
+    backgroundColor: Colors.cardDark,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.darkGreen,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  courseContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  courseEmoji: {
+    fontSize: 32,
     marginRight: 12,
   },
-  lockedNum: { backgroundColor: Colors.cardDark, borderWidth: 1, borderColor: Colors.darkGreen },
-  lessonNumText: { fontSize: 12, color: Colors.textPrimary, fontWeight: 'bold' },
-  lessonTitle: { flex: 1, fontSize: 14, color: Colors.textPrimary },
-  lockedText: { color: Colors.textSecondary },
-  moreBtn: { alignItems: 'center', paddingTop: 10 },
-  moreBtnText: { color: Colors.gold, fontSize: 14 },
+  courseInfo: {
+    flex: 1,
+  },
+  courseTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  courseProgress: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+  },
+  leaderboardCard: {
+    backgroundColor: Colors.cardDark,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.darkGreen,
+    gap: 12,
+  },
+  leaderboardItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  leaderboardRank: {
+    fontSize: 24,
+  },
+  leaderboardName: {
+    flex: 1,
+    fontSize: 15,
+    color: Colors.textPrimary,
+    fontWeight: '500',
+  },
+  leaderboardPoints: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: Colors.gold,
+  },
 });
+

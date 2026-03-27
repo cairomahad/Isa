@@ -30,9 +30,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Уроки',
-          tabBarIcon: ({ color }) => <TabIcon name="book" color={color} />,
-          tabBarTestID: 'tab-lessons',
+          title: 'Главная',
+          tabBarIcon: ({ color }) => <TabIcon name="home" color={color} />,
+          tabBarTestID: 'tab-home',
         }}
       />
       <Tabs.Screen
@@ -44,27 +44,46 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="hadiths"
+        name="zikr"
         options={{
-          title: 'Хадисы',
-          tabBarIcon: ({ color }) => <TabIcon name="library" color={color} />,
-          tabBarTestID: 'tab-hadiths',
+          title: 'Зикр',
+          tabBarIcon: ({ color }) => <TabIcon name="bead-outline" color={color} />,
+          tabBarTestID: 'tab-zikr',
         }}
       />
       <Tabs.Screen
-        name="rating"
+        name="qa"
         options={{
-          title: 'Рейтинг',
-          tabBarIcon: ({ color }) => <TabIcon name="trophy" color={color} />,
-          tabBarTestID: 'tab-rating',
+          title: 'Вопросы',
+          tabBarIcon: ({ color }) => <TabIcon name="chatbubbles" color={color} />,
+          tabBarTestID: 'tab-qa',
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Настройки',
-          tabBarIcon: ({ color }) => <TabIcon name="settings" color={color} />,
+          title: 'Ещё',
+          tabBarIcon: ({ color }) => <TabIcon name="menu" color={color} />,
           tabBarTestID: 'tab-settings',
+        }}
+      />
+      {/* Hidden tabs */}
+      <Tabs.Screen
+        name="hadiths"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
+      <Tabs.Screen
+        name="rating"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
+      <Tabs.Screen
+        name="missed-prayers"
+        options={{
+          href: null, // Hide from tab bar
         }}
       />
     </Tabs>

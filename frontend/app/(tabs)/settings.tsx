@@ -179,6 +179,28 @@ export default function SettingsScreen() {
             </View>
           </View>
 
+          {/* Quick Links */}
+          <Section title="Разделы" />
+          <View style={styles.card}>
+            <Row
+              icon="library"
+              label="Хадисы"
+              onPress={() => router.push('/hadiths')}
+            />
+            <View style={styles.rowDivider} />
+            <Row
+              icon="calendar"
+              label="Возмещение намазов"
+              onPress={() => router.push('/missed-prayers')}
+            />
+            <View style={styles.rowDivider} />
+            <Row
+              icon="trophy"
+              label="Рейтинг"
+              onPress={() => router.push('/rating')}
+            />
+          </View>
+
           {/* General */}
           <Section title="Общие" />
           <View style={styles.card}>
