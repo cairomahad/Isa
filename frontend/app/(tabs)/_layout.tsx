@@ -44,6 +44,14 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="lessons"
+        options={{
+          title: 'Уроки',
+          tabBarIcon: ({ color }) => <TabIcon name="book" color={color} />,
+          tabBarTestID: 'tab-lessons',
+        }}
+      />
+      <Tabs.Screen
         name="prayers"
         options={{
           title: 'Намазы',
@@ -57,14 +65,6 @@ export default function TabLayout() {
           title: 'Зикр',
           tabBarIcon: ({ color }) => <TabIcon name="radio-button-on" color={color} />,
           tabBarTestID: 'tab-zikr',
-        }}
-      />
-      <Tabs.Screen
-        name="qa"
-        options={{
-          title: 'Вопросы',
-          tabBarIcon: ({ color }) => <TabIcon name="chatbubbles" color={color} />,
-          tabBarTestID: 'tab-qa',
         }}
       />
       <Tabs.Screen
@@ -84,6 +84,12 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="rating"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
+      <Tabs.Screen
+        name="qa"
         options={{
           href: null, // Hide from tab bar
         }}
