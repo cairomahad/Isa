@@ -66,7 +66,8 @@ export default function HomeScreen() {
         <View style={styles.quickActions}>
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => router.push('/zikr')}
+            onPress={() => router.push('/(tabs)/zikr')}
+            testID="quick-action-zikr"
           >
             <View style={styles.actionIcon}>
               <Ionicons name="radio-button-on" size={28} color={Colors.primary} />
@@ -76,7 +77,8 @@ export default function HomeScreen() {
 
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => router.push('/missed-prayers')}
+            onPress={() => router.push('/(tabs)/missed-prayers')}
+            testID="quick-action-missed-prayers"
           >
             <View style={styles.actionIcon}>
               <Ionicons name="calendar" size={28} color={Colors.primary} />
@@ -86,7 +88,8 @@ export default function HomeScreen() {
 
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => router.push('/qa')}
+            onPress={() => router.push('/(tabs)/qa')}
+            testID="quick-action-qa"
           >
             <View style={styles.actionIcon}>
               <Ionicons name="chatbubbles" size={28} color={Colors.primary} />
@@ -96,7 +99,8 @@ export default function HomeScreen() {
 
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => router.push('/hadiths')}
+            onPress={() => router.push('/(tabs)/hadiths')}
+            testID="quick-action-hadiths"
           >
             <View style={styles.actionIcon}>
               <Ionicons name="library" size={28} color={Colors.primary} />
