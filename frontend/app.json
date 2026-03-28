@@ -6,12 +6,12 @@
     "orientation": "portrait",
     "icon": "./assets/images/mosque-logo.png",
     "scheme": "tazakkur",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/splash-icon.png",
+      "image": "./assets/images/mosque-logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF"
+      "backgroundColor": "#F8F6F2"
     },
     "ios": {
       "supportsTablet": true,
@@ -28,8 +28,8 @@
       "package": "com.tazakkur.app",
       "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#FFFFFF"
+        "foregroundImage": "./assets/images/mosque-logo.png",
+        "backgroundColor": "#F8F6F2"
       },
       "permissions": [
         "CAMERA",
@@ -52,10 +52,10 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/mosque-logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#FFFFFF"
+          "backgroundColor": "#F8F6F2"
         }
       ],
       "expo-font",
