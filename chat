@@ -1,0 +1,933 @@
+помоги собрать apk по инструкции от "ии"19:34Помогу разобраться! Но мне нужно уточнить пару вещей, чтобы помочь правильно.Хорошо! Давайте идём по шагам с нуля на MacBook.
+
+Шаг 1 — Перейдите в папку frontend
+Откройте терминал и выполните:
+bashcd ~/path/to/otkritprog_peredaca6-main/frontend
+
+Замените ~/path/to/ на реальный путь. Если не знаете где папка — перетащите её прямо в терминал после cd .
+
+Проверьте что вы на месте:
+bashpwd
+ls
+Должны видеть файлы package.json, app.json, eas.json.
+
+Шаг 2 — Установите EAS CLI
+bashnpm install -g eas-cli
+eas --version
+
+Шаг 3 — Войдите в Expo
+Если аккаунта нет — зарегистрируйтесь на expo.dev/signup, потом:
+basheas login
+eas whoami
+
+Шаг 4 — Первичная настройка (только один раз)
+basheas build:configure
+На вопросы отвечайте Yes.
+
+Шаг 5 — Запустите сборку APK
+basheas build --platform android --profile preview
+Ждите 10–15 минут. В конце терминал выдаст ссылку на APK — скопируйте её.
+
+Если на каком-то шаге вылезет ошибка — скопируйте текст ошибки сюда, разберёмся вместе! 🚀Q: Что именно происходит сейчас?
+A: Ещё ничего не начинал, нужно с нуляQ: Где вы находитесь сейчас?
+A: На MacBook в терминале19:34Отлично! Давайте начнём. Сначала скажите — где лежит папка проекта otkritprog_peredaca6-main?
+Самый простой способ найти путь: откройте Finder, найдите папку otkritprog_peredaca6-main, и перетащите её прямо в окно терминала после того, как напечатаете cd  (с пробелом). Путь вставится автоматически. Затем нажмите Enter.
+bashcd
+(перетащите папку frontend сюда)
+После нажатия Enter выполните:
+bashpwd
+ls
+И пришлите мне что показало — убедимся что вы в правильном месте, и двигаемся дальше! 🙂Last login: Sat Mar 28 19:29:20 on ttys000
+isa@MacBook-Pro-ISA otkritprog_peredaca6-main %19:35Вы уже в папке otkritprog_peredaca6-main! Теперь нужно зайти в frontend. Выполните:
+bashcd frontend
+Затем проверьте что там есть нужные файлы:
+bashls
+Пришлите что показало — посмотрим что внутри! 🙂isa@MacBook-Pro-ISA otkritprog_peredaca6-main % cd frontend
+isa@MacBook-Pro-ISA frontend % ls
+README.md constants package-lock.json
+app contexts package.json
+app.json eas.json scripts
+assets eslint.config.js services
+babel.config.js lib store
+components metro.config.js tsconfig.json
+isa@MacBook-Pro-ISA frontend %19:35Всё отлично! Видны app.json и eas.json — всё на месте.
+Теперь установите EAS CLI:
+bashnpm install -g eas-cli
+Это займёт минуту. Пришлите что показало в конце! 🙂я до этого другой проект сделал по инструкции apk19:36Значит EAS CLI уже установлен и скорее всего вы уже залогинены. Проверьте:
+basheas whoami
+Что показало?⠋^C
+isa@MacBook-Pro-ISA frontend % eas whoami
+ben777
+iaba30294@gmail.com
+isa@MacBook-Pro-ISA frontend %19:36Отлично! Вы уже залогинены как ben777. Можно сразу запускать сборку:
+basheas build --platform android --profile preview
+Запускайте и пришлите что появится в терминале! 🚀isa@MacBook-Pro-ISA frontend % eas whoami
+ben777
+iaba30294@gmail.com
+isa@MacBook-Pro-ISA frontend % eas build --platform android --profile preview
+eas.json is not valid.
+- "build.production.android.buildType" must be one of [apk, app-bundle]
+    Error: build command failed.
+isa@MacBook-Pro-ISA frontend %19:36Ошибка в файле eas.json. Давайте посмотрим что там сейчас:
+bashcat eas.json
+Пришлите вывод — исправим! 🙂cat eas.json19:36Вы написали команду но не прислали вывод 😄
+Скопируйте и вставьте сюда всё что показал терминал после cat eas.json!isa@MacBook-Pro-ISA frontend % eas build --platform android --profile preview
+eas.json is not valid.
+- "build.production.android.buildType" must be one of [apk, app-bundle]
+    Error: build command failed.
+isa@MacBook-Pro-ISA frontend % cat eas.json
+{
+  "cli": {
+    "version": ">= 13.2.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "aab"
+      },
+      "ios": {
+        "autoIncrement": true
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./playstore-service-account.json",
+        "track": "internal"
+      },
+      "ios": {
+        "appleId": "your-apple-id@example.com",
+        "ascAppId": "your-app-id",
+        "appleTeamId": "your-team-id"
+      }
+    }
+  }
+}Show more19:38Файл выглядит нормально, но EAS CLI ругается на buildType: "aab" в production. Нужно исправить на правильное значение. Выполните эту команду — она заменит автоматически:
+bashsed -i '' 's/"buildType": "aab"/"buildType": "app-bundle"/' eas.json
+Затем проверьте что исправилось:
+bashcat eas.json
+И сразу запускайте сборку:
+basheas build --platform android --profile previewчто это значит Файл выглядит нормально, но EAS CLI ругается на buildType: "aab" в production. Нужно исправить на правильное значение. Выполните эту команду — она заменит автоматически:19:39EAS CLI принимает только два значения для buildType:
+
+apk — установочный файл
+app-bundle — для Google Play
+
+В вашем файле написано "aab" — это неправильное название, хотя смысл тот же. EAS его не понимает и падает с ошибкой.
+Команда sed просто заменит "aab" на "app-bundle" прямо в файле автоматически, без открытия редактора.
+Запускайте:
+bashsed -i '' 's/"buildType": "aab"/"buildType": "app-bundle"/' eas.jsonмне нужно пока просто на телефон19:39Тогда всё проще! Вам нужен только профиль preview — он и так правильный (apk). Просто запускайте:
+basheas build --platform android --profile preview
+Ошибка была из-за production профиля, но вы его не используете. Попробуйте запустить и пришлите что покажет!}
+isa@MacBook-Pro-ISA frontend % eas build --platform android --profile preview
+eas.json is not valid.
+- "build.production.android.buildType" must be one of [apk, app-bundle]
+    Error: build command failed.
+isa@MacBook-Pro-ISA frontend %19:40EAS проверяет весь файл целиком, даже если вы используете только preview. Нужно всё равно исправить "aab". Запустите команду:
+bashsed -i '' 's/"buildType": "aab"/"buildType": "app-bundle"/' eas.json
+Затем сразу:
+basheas build --platform android --profile previewpreview
+eas.json is not valid.
+- "build.production.android.buildType" must be one of [apk, app-bundle]
+    Error: build command failed.
+isa@MacBook-Pro-ISA frontend % sed -i '' 's/"buildType": "aab"/"buildType": "app-bundle"/' eas.json
+isa@MacBook-Pro-ISA frontend % eas build --platform android --profile preview19:42Отлично, sed сработал! Теперь сборка запустилась. Пришлите что показывает терминал — скорее всего будут вопросы на которые нужно ответить Y или Yes 🙂}
+isa@MacBook-Pro-ISA frontend % eas build --platform android --profile preview
+eas.json is not valid.
+- "build.production.android.buildType" must be one of [apk, app-bundle]
+    Error: build command failed.
+isa@MacBook-Pro-ISA frontend % sed -i '' 's/"buildType": "aab"/"buildType": "app-bundle"/' eas.json
+isa@MacBook-Pro-ISA frontend % eas build --platform android --profile preview
+Failed to read the app config from the project using "npx expo config" command: npx expo config --json exited with non-zero code: 243.
+Falling back to the version of "@expo/config" shipped with the EAS CLI.
+Failed to resolve plugin for module "expo-router" relative to "/Users/isa/Downloads/otkritprog_peredaca6-main/frontend"
+    Error: build command failed.
+isa@MacBook-Pro-ISA frontend %Show more19:42Прогресс! Первая ошибка исправлена. Теперь новая — не установлены зависимости проекта. Запустите:
+bashnpm install
+Подождите пока установится, затем снова:
+basheas build --platform android --profile previewчто это за зависимости про это же не было сказано в инструкции19:43Зависимости — это все библиотеки которые использует ваш проект (expo-router и другие). Они не входят в сам код, их нужно скачать отдельно. В инструкции был шаг yarn install — это то же самое, просто другой менеджер.
+В вашем проекте есть package-lock.json значит нужен npm install. Запустите и всё скачается автоматически:
+bashnpm install"app-bundle"/' eas.json
+isa@MacBook-Pro-ISA frontend % eas build --platform android --profile preview
+Failed to read the app config from the project using "npx expo config" command: npx expo config --json exited with non-zero code: 243.
+Falling back to the version of "@expo/config" shipped with the EAS CLI.
+Failed to resolve plugin for module "expo-router" relative to "/Users/isa/Downloads/otkritprog_peredaca6-main/frontend"
+    Error: build command failed.
+isa@MacBook-Pro-ISA frontend % npm install
+npm error code ERESOLVE
+npm error ERESOLVE unable to resolve dependency tree
+npm error
+npm error While resolving: frontend@1.0.0
+npm error Found: react-native-worklets@0.5.1
+npm error node_modules/react-native-worklets
+npm error   react-native-worklets@"0.5.1" from the root project
+npm error
+npm error Could not resolve dependency:
+npm error peer react-native-worklets@"0.8.x" from react-native-reanimated@4.3.0
+npm error node_modules/react-native-reanimated
+npm error   react-native-reanimated@"^4.3.0" from the root project
+npm error   peer react-native-reanimated@">=3.16.0 || >=4.0.0-" from @gorhom/bottom-sheet@5.2.8
+npm error   node_modules/@gorhom/bottom-sheet
+npm error     @gorhom/bottom-sheet@"^5.2.8" from the root project
+npm error
+npm error Fix the upstream dependency conflict, or retry
+npm error this command with --force or --legacy-peer-deps
+npm error to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:
+npm error /Users/isa/.npm/_logs/2026-03-28T17_43_52_015Z-eresolve-report.txt
+npm error A complete log of this run can be found in: /Users/isa/.npm/_logs/2026-03-28T17_43_52_015Z-debug-0.log
+isa@MacBook-Pro-ISA frontend %Show more19:44Конфликт версий библиотек. Попробуйте с флагом --legacy-peer-deps:
+bashnpm install --legacy-peer-depsпочему это может происходить19:44Проблема в package.json проекта — там указаны несовместимые версии библиотек:
+
+react-native-worklets версия 0.5.1
+но react-native-reanimated@4.3.0 требует react-native-worklets версии 0.8.x
+
+Это значит что тот кто писал проект указал несовместимые версии зависимостей и не проверил. Это ошибка в самом проекте, не у вас.
+Флаг --legacy-peer-deps говорит npm "не проверяй совместимость строго, просто установи". Обычно для сборки APK этого достаточно.
+Запускайте:
+bashnpm install --legacy-peer-depsm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: 'metro-transform-worker@0.83.3',
+npm warn EBADENGINE   required: { node: '>=20.19.4' },
+npm warn EBADENGINE   current: { node: 'v20.19.0', npm: '10.8.2' }
+npm warn EBADENGINE }
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: 'ob1@0.83.3',
+npm warn EBADENGINE   required: { node: '>=20.19.4' },
+npm warn EBADENGINE   current: { node: 'v20.19.0', npm: '10.8.2' }
+npm warn EBADENGINE }
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: 'react-native@0.81.5',
+npm warn EBADENGINE   required: { node: '>= 20.19.4' },
+npm warn EBADENGINE   current: { node: 'v20.19.0', npm: '10.8.2' }
+npm warn EBADENGINE }
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: '@react-native/virtualized-lists@0.81.5',
+npm warn EBADENGINE   required: { node: '>= 20.19.4' },
+npm warn EBADENGINE   current: { node: 'v20.19.0', npm: '10.8.2' }
+npm warn EBADENGINE }
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated uuid@3.4.0: Please upgrade  to version 7 or higher.  Older versions may use Math.random() in certain circumstances, which is known to be problematic.  See https://v8.dev/blog/math-random for details.
+npm warn deprecated glob@9.3.5: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm error code EACCES
+npm error syscall open
+npm error path /Users/isa/.npm/_cacache/index-v5/25/6e/4b439cd530e6a38af802bae49d3069b7907c9a582ea8e49f5b4f5c2fa497
+npm error errno -13
+npm error
+npm error Your cache folder contains root-owned files, due to a bug in
+npm error previous versions of npm which has since been addressed.
+npm error
+npm error To permanently fix this problem, please run:
+npm error   sudo chown -R 501:20 "/Users/isa/.npm"
+npm error A complete log of this run can be found in: /Users/isa/.npm/_logs/2026-03-28T17_44_55_161Z-debug-0.log
+isa@MacBook-Pro-ISA frontend %Show more19:46Две проблемы, решаем по порядку.
+Сначала исправьте права доступа (последняя ошибка EACCES):
+bashsudo chown -R 501:20 "/Users/isa/.npm"
+Введёт пароль от MacBook (он не отображается при вводе — это нормально), нажмите Enter.
+Затем снова:
+bashnpm install --legacy-peer-depspm warn EBADENGINE   package: 'react-native@0.81.5',
+npm warn EBADENGINE   required: { node: '>= 20.19.4' },
+npm warn EBADENGINE   current: { node: 'v20.19.0', npm: '10.8.2' }
+npm warn EBADENGINE }
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: '@react-native/virtualized-lists@0.81.5',
+npm warn EBADENGINE   required: { node: '>= 20.19.4' },
+npm warn EBADENGINE   current: { node: 'v20.19.0', npm: '10.8.2' }
+npm warn EBADENGINE }
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated uuid@3.4.0: Please upgrade  to version 7 or higher.  Older versions may use Math.random() in certain circumstances, which is known to be problematic.  See https://v8.dev/blog/math-random for details.
+npm warn deprecated glob@9.3.5: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.meadded 1043 packages, and audited 1044 packages in 17s187 packages are looking for funding
+  run npm fund for detailsfound 0 vulnerabilities
+isa@MacBook-Pro-ISA frontend %Show more19:47Установилось! Предупреждения (warn) — это нормально, главное что в конце:
+added 1043 packages
+found 0 vulnerabilities
+Теперь запускайте сборку:
+basheas build --platform android --profile previewnpm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated uuid@3.4.0: Please upgrade  to version 7 or higher.  Older versions may use Math.random() in certain circumstances, which is known to be problematic.  See https://v8.dev/blog/math-random for details.
+npm warn deprecated glob@9.3.5: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.meadded 1043 packages, and audited 1044 packages in 17s187 packages are looking for funding
+  run npm fund for detailsfound 0 vulnerabilities
+isa@MacBook-Pro-ISA frontend % eas build --platform android --profile preview
+Invalid UUID appId
+Request ID: ffac75b5-dd57-47d8-aba2-dd01a2fe025a
+    Error: GraphQL request failed.
+isa@MacBook-Pro-ISA frontend %Show more19:47Проект не привязан к вашему Expo аккаунту. Нужно настроить. Запустите:
+basheas build:configure
+На вопрос "Would you like to automatically create an EAS project?" ответьте y и нажмите Enter.
+Пришлите что покажет!added 1043 packages, and audited 1044 packages in 17s187 packages are looking for funding
+  run npm fund for detailsfound 0 vulnerabilities
+isa@MacBook-Pro-ISA frontend % eas build --platform android --profile preview
+Invalid UUID appId
+Request ID: ffac75b5-dd57-47d8-aba2-dd01a2fe025a
+    Error: GraphQL request failed.
+isa@MacBook-Pro-ISA frontend % eas build:configure
+Invalid UUID appId
+Request ID: 5c655b5e-9f99-4489-952a-ee43f3669877
+    Error: GraphQL request failed.
+isa@MacBook-Pro-ISA frontend %Show more19:48Проблема в app.json — там скорее всего прописан неправильный extra.eas.projectId. Посмотрим:
+bashcat app.json
+Пришлите вывод!isa@MacBook-Pro-ISA frontend % eas build:configure
+Invalid UUID appId
+Request ID: 5c655b5e-9f99-4489-952a-ee43f3669877
+    Error: GraphQL request failed.
+isa@MacBook-Pro-ISA frontend % cat app.json       
+{
+  "expo": {
+    "name": "Tazakkur",
+    "slug": "tazakkur",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/mosque-logo.png",
+    "scheme": "tazakkur",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/mosque-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F8F6F2"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tazakkur.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Tazakkur needs access to your microphone to record audio for homework assignments.",
+        "NSCameraUsageDescription": "Tazakkur needs access to your camera to take photos for homework assignments.",
+        "NSPhotoLibraryUsageDescription": "Tazakkur needs access to your photo library to select photos for homework assignments.",
+        "NSPhotoLibraryAddUsageDescription": "Tazakkur needs permission to save photos to your library."
+      }
+    },
+    "android": {
+      "package": "com.tazakkur.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/mosque-logo.png",
+        "backgroundColor": "#F8F6F2"
+      },
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "POST_NOTIFICATIONS",
+        "SCHEDULE_EXACT_ALARM",
+        "RECEIVE_BOOT_COMPLETED",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ],
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/mosque-logo.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#F8F6F2"
+        }
+      ],
+      "expo-font",
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Tazakkur needs access to your photos for homework assignments.",
+          "cameraPermission": "Tazakkur needs access to your camera for homework assignments."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "tazakkur-islamic-app"
+      }
+    }
+  }
+}
+isa@MacBook-Pro-ISA frontend %Show more19:48Нашёл проблему! В app.json написано:
+json"projectId": "tazakkur-islamic-app"
+Но projectId должен быть UUID (типа xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx), а не текст. Нужно создать проект на Expo и получить правильный ID.
+Запустите:
+basheas init --id
+Или просто:
+basheas init
+Пришлите что покажет!isa@MacBook-Pro-ISA frontend % eas init
+✔ Project already linked (ID: tazakkur-islamic-app). To re-configure, remove the "extra.eas.projectId" field from your app config.
+Invalid UUID appId
+Request ID: a7d8c65e-26e4-4e79-9d70-8863a0654787
+    Error: GraphQL request failed.
+isa@MacBook-Pro-ISA frontend %19:49Нужно вручную исправить projectId в app.json. Сначала удалим старый неправильный ID:
+bashsed -i '' 's/"projectId": "tazakkur-islamic-app"/"projectId": ""/' app.json
+Затем запустим eas init чтобы он создал новый проект и прописал правильный UUID:
+basheas init
+Пришлите что покажет!isa@MacBook-Pro-ISA frontend % eas init
+✔ Project already linked (ID: tazakkur-islamic-app). To re-configure, remove the "extra.eas.projectId" field from your app config.
+Invalid UUID appId
+Request ID: a7d8c65e-26e4-4e79-9d70-8863a0654787
+    Error: GraphQL request failed.
+isa@MacBook-Pro-ISA frontend % sed -i '' 's/"projectId": "tazakkur-islamic-app"/"projectId": ""/' app.json
+isa@MacBook-Pro-ISA frontend % eas init
+✔ Existing project found: @ben777/tazakkur (ID: b0a306ed-8647-4ec0-a973-99cb3bba0466). Link this project? … yes
+✔ Project successfully linked (ID: b0a306ed-8647-4ec0-a973-99cb3bba0466) (modified app.json)
+isa@MacBook-Pro-ISA frontend %Show more19:49Отлично! Проект привязан, получили правильный UUID. Теперь запускайте сборку:
+basheas build --platform android --profile previewRequest ID: a7d8c65e-26e4-4e79-9d70-8863a0654787
+    Error: GraphQL request failed.
+isa@MacBook-Pro-ISA frontend % sed -i '' 's/"projectId": "tazakkur-islamic-app"/"projectId": ""/' app.json
+isa@MacBook-Pro-ISA frontend % eas init
+✔ Existing project found: @ben777/tazakkur (ID: b0a306ed-8647-4ec0-a973-99cb3bba0466). Link this project? … yes
+✔ Project successfully linked (ID: b0a306ed-8647-4ec0-a973-99cb3bba0466) (modified app.json)
+isa@MacBook-Pro-ISA frontend % eas build --platform android --profile preview
+Resolved "preview" environment for the build. Learn more: https://docs.expo.dev/eas/environment-variables/#setting-the-environment-for-your-builds
+No environment variables with visibility "Plain text" and "Sensitive" found for the "preview" environment on EAS.No remote versions are configured for this project, versionCode will be initialized based on the value from the local project.
+✔ Initialized versionCode with 1.android.versionCode field in app config is ignored when version source is set to remote, but this value will still be in the manifest available via expo-constants. It's recommended to remove this value from app config.
+✔ Using remote Android credentials (Expo server)
+✔ Using Keystore from configuration: Build Credentials x-pBA948mi (default)Compressing project files and uploading to EAS Build. Learn more: https://expo.fyi/eas-build-archive
+⠙ Compressing project filesShow more19:50Сборка началась! 🎉 Она сейчас загружает файлы на серверы Expo.
+Просто ждите — не закрывайте терминал. Займёт 10-15 минут. В конце появится ссылка на APK.android.versionCode field in app config is ignored when version source is set to remote, but this value will still be in the manifest available via expo-constants. It's recommended to remove this value from app config.
+✔ Using remote Android credentials (Expo server)
+✔ Using Keystore from configuration: Build Credentials x-pBA948mi (default)Compressing project files and uploading to EAS Build. Learn more: https://expo.fyi/eas-build-archive
+✖ Compressing project files
+Failed to upload the project tarball to EAS BuildReason: Detected inconsistent filename casing between your local filesystem and git.
+This will likely cause your job to fail. Impacted files:
+?? "Library/Application Support/Google/Chrome/Profile 25/IndexedDB/https_claude.ai_0.indexeddb.blob/1/05/52b"
+?? "Library/Caches/Google/Chrome/Profile 34/Cache/Cache_Data/1b5c04df71bd71a4_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Cache/Cache_Data/2028c76970ce919c_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Cache/Cache_Data/2f86d59cf67fe431_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Cache/Cache_Data/4517f671f2d04b42_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Cache/Cache_Data/c324dc66f2a3af22_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Cache/Cache_Data/ca04dc91bc4c0c4f_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/1607f0119cd99c69_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/212bcb48a18f18c5_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/2af89c4e94da61f0_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/3308789078b5db06_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/425b70d8b39a8af3_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/4273fee0774660be_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/4dff4ded83714686_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/554760c71e6418c3_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/5eadcf7505ead139_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/5f70c82c458b8f3a_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/6487fce769d17379_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/987d1aec167ce687_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/9885718689136962_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/9f8d422c4b7c3b5d_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/a2c0c82bd767ed21_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/a93ad3a997f41b7d_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/aa88dbe3ae7bbe30_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/be3e39e1d699c5d1_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/cc6256e340c3cd4d_0"
+?? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/e83f64929183bd73_0"
+Resolve filename casing inconsistencies before proceeding. Learn more: https://expo.fyi/macos-ignorecase
+    Error: build command failed.
+isa@MacBook-Pro-ISA frontend %Show more19:51Проблема в том что EAS пытается загрузить кэш Chrome вместо файлов проекта. Папка проекта случайно находится слишком высоко и захватывает лишнее.
+Исправим — создайте файл .easignore:
+bashecho "Library/" > .easignore
+Затем снова:
+basheas build --platform android --profile previewкак понять слишком большая, это плохо? и как сделать чтобы была поменьше?19:53Нет, размер тут не причём 😄
+Проблема в другом — EAS смотрит на файлы через git, и видит папку Library (это системная папка macOS с кэшем Chrome). Она попала в область видимости потому что проект не инициализирован как git репозиторий — и EAS начал смотреть на всё подряд включая системные папки.
+Файл .easignore который мы создали говорит EAS "игнорируй папку Library". Этого должно быть достаточно.
+Запускайте:
+basheas build --platform android --profile preview? "Library/Caches/Google/Chrome/Profile 34/Code Cache/js/e83f64929183bd73_0"
+Resolve filename casing inconsistencies before proceeding. Learn more: https://expo.fyi/macos-ignorecase
+    Error: build command failed.
+isa@MacBook-Pro-ISA frontend % echo "Library/" > .easignore
+isa@MacBook-Pro-ISA frontend % eas build --platform android --profile preview
+Resolved "preview" environment for the build. Learn more: https://docs.expo.dev/eas/environment-variables/#setting-the-environment-for-your-builds
+No environment variables with visibility "Plain text" and "Sensitive" found for the "preview" environment on EAS.android.versionCode field in app config is ignored when version source is set to remote, but this value will still be in the manifest available via expo-constants. It's recommended to remove this value from app config.
+✔ Using remote Android credentials (Expo server)
+✔ Using Keystore from configuration: Build Credentials x-pBA948mi (default)Compressing project files and uploading to EAS Build. Learn more: https://expo.fyi/eas-build-archive
+✖ Compressing project files
+Failed to upload the project tarball to EAS BuildReason: Detected inconsistent filename casing between your local filesystem and git.
+This will likely cause your job to fail. Impacted files:
+?? "Library/Application Support/Google/Chrome/Profile 25/IndexedDB/https_claude.ai_0.indexeddb.blob/1/05/532"
+?? "Library/Application Support/Google/Chrome/Profile 34/Local Storage/leveldb/006349.log"
+?? "Library/Application Support/Google/Chrome/Profile 34/Local Storage/leveldb/006350.ldb"
+Resolve filename casing inconsistencies before proceeding. Learn more: https://expo.fyi/macos-ignorecase
+    Error: build command failed.
+isa@MacBook-Pro-ISA frontend %Show more19:53.easignore не сработал. Проблема глубже — проект не является git репозиторием и EAS видит всю файловую систему. Исправим это:
+bashgit init
+git add .
+git commit -m "initial commit"
+Затем:
+basheas build --platform android --profile previewчто это?19:54git — это система контроля версий. Думайте о ней как о "сохранении игры" для кода.
+Когда вы делаете git init и git add . и git commit — вы говорите EAS "вот именно эти файлы проекта загружай, больше ничего". Без этого EAS не знает где границы проекта и хватает всё подряд включая кэш Chrome.
+Это стандартный шаг для любого проекта. Запускайте:
+bashgit init
+git add .
+git commit -m "initial commit"db/006350.ldb"
+Resolve filename casing inconsistencies before proceeding. Learn more: https://expo.fyi/macos-ignorecase
+    Error: build command failed.
+isa@MacBook-Pro-ISA frontend % git init
+git add .
+git commit -m "initial commit"
+Initialized empty Git repository in /Users/isa/Downloads/otkritprog_peredaca6-main/frontend/.git/
+[main (root-commit) 27273b3] initial commit
+ 59 files changed, 25032 insertions(+)
+ create mode 100644 .easignore
+ create mode 100644 .gitignore
+ create mode 100644 README.md
+ create mode 100644 app.json
+ create mode 100644 app/(auth)/_layout.tsx
+ create mode 100644 app/(auth)/onboarding.tsx
+ create mode 100644 app/(auth)/welcome.tsx
+ create mode 100644 app/(tabs)/_layout.tsx
+ create mode 100644 app/(tabs)/hadiths.tsx
+ create mode 100644 app/(tabs)/index.tsx
+ create mode 100644 app/(tabs)/lessons.tsx
+ create mode 100644 app/(tabs)/missed-prayers.tsx
+ create mode 100644 app/(tabs)/prayers.tsx
+ create mode 100644 app/(tabs)/profile.tsx
+ create mode 100644 app/(tabs)/qa.tsx
+ create mode 100644 app/(tabs)/quran.tsx
+ create mode 100644 app/(tabs)/rating.tsx
+ create mode 100644 app/(tabs)/settings.tsx
+ create mode 100644 app/(tabs)/zikr.tsx
+ create mode 100644 app/+html.tsx
+ create mode 100644 app/_layout.tsx
+ create mode 100644 app/admin/content.tsx
+ create mode 100644 app/admin/index.tsx
+ create mode 100644 app/admin/manage-lessons.tsx
+ create mode 100644 app/admin/review.tsx
+ create mode 100644 app/admin/students.tsx
+ create mode 100644 app/homework/[id].tsx
+ create mode 100644 app/index.tsx
+ create mode 100644 app/lesson/[id].tsx
+ create mode 100644 app/onboarding.tsx
+ create mode 100644 app/search.tsx
+ create mode 100755 assets/fonts/SpaceMono-Regular.ttf
+ create mode 100644 assets/images/adaptive-icon.png
+ create mode 100644 assets/images/app-image.png
+ create mode 100644 assets/images/favicon.png
+ create mode 100644 assets/images/icon.png
+ create mode 100644 assets/images/mosque-logo.png
+ create mode 100644 assets/images/partial-react-logo.png
+ create mode 100644 assets/images/react-logo.png
+ create mode 100644 assets/images/react-logo@2x.png
+ create mode 100644 assets/images/react-logo@3x.png
+ create mode 100644 assets/images/splash-image.png
+ create mode 100644 babel.config.js
+ create mode 100644 components/MenuBottomSheet.tsx
+ create mode 100644 components/QuizScreen.tsx
+ create mode 100644 components/SkeletonLoader.tsx
+ create mode 100644 constants/cities.ts
+ create mode 100644 constants/colors.ts
+ create mode 100644 contexts/ThemeContext.tsx
+ create mode 100644 eas.json
+ create mode 100644 eslint.config.js
+ create mode 100644 lib/supabase.ts
+ create mode 100644 metro.config.js
+ create mode 100644 package-lock.json
+ create mode 100644 package.json
+ create mode 100755 scripts/reset-project.js
+ create mode 100644 services/notificationService.ts
+ create mode 100644 store/authStore.ts
+ create mode 100644 tsconfig.json
+isa@MacBook-Pro-ISA frontend %Show more19:54Отлично! Git инициализирован, все файлы сохранены. Теперь запускайте сборку:
+basheas build --platform android --profile previewя делал этот проект через клойд 4.5 но получается ты 4.6 умнее?19:56Да, Claude Sonnet 4.6 — это более новая версия чем 4.5 😄 Но разница не принципиальная, просто небольшие улучшения.
+Главное что сборка идёт в правильном направлении! Запускайте:
+basheas build --platform android --profile previewErrored
+Mar 28, 2026 7:55 PM
+155ms
+49s
+9s
+58s
+13 days
+Logs
+Waiting to start
+10s
+Spin up build environment
+38s
+Read eas.json
+0ms
+Read package.json
+1ms
+Install dependencies
+2sRunning "npm ci --include=dev" in /home/expo/workingdir/build directorynpm warn ERESOLVE overriding peer dependencynpm warn While resolving: expo-application@55.0.11-canary-20260328-2049187npm warn Found: expo@54.0.33npm warn node_modules/exponpm warn   expo@"54.0.33" from the root projectnpm warn   21 more (@expo/metro-config, @expo/metro-runtime, ...)npm warnnpm warn Could not resolve dependency:npm warn peer expo@"55.0.10-canary-20260328-2049187" from expo-application@55.0.11-canary-20260328-2049187npm warn node_modules/expo-applicationnpm warn   expo-application@"55.0.11-canary-20260328-2049187" from expo-notifications@55.0.15-canary-20260328-2049187npm warn   node_modules/expo-notificationsnpm warnnpm warn Conflicting peer dependency: expo@55.0.10-canary-20260328-2049187npm warn node_modules/exponpm warn   peer expo@"55.0.10-canary-20260328-2049187" from expo-application@55.0.11-canary-20260328-2049187npm warn   node_modules/expo-applicationnpm warn     expo-application@"55.0.11-canary-20260328-2049187" from expo-notifications@55.0.15-canary-20260328-2049187npm warn     node_modules/expo-notificationsnpm error code ERESOLVEnpm error ERESOLVE could not resolvenpm errornpm error While resolving: expo-notifications@55.0.15-canary-20260328-2049187npm error Found: expo@54.0.33npm error node_modules/exponpm error   expo@"54.0.33" from the root projectnpm error   peerOptional expo@"*" from @expo/metro-config@54.0.14npm error   node_modules/@expo/metro-confignpm error     @expo/metro-config@"54.0.14" from expo@54.0.33npm error     @expo/metro-config@"~54.0.14" from @expo/cli@54.0.23npm error     node_modules/expo/node_modules/@expo/clinpm error       @expo/cli@"54.0.23" from expo@54.0.33npm error   20 more (@expo/metro-runtime, @expo/prebuild-config, ...)npm errornpm error Could not resolve dependency:npm error peer expo@"55.0.10-canary-20260328-2049187" from expo-notifications@55.0.15-canary-20260328-2049187npm error node_modules/expo-notificationsnpm error   expo-notifications@"^55.0.15-canary-20260328-2049187" from the root projectnpm errornpm error Conflicting peer dependency: expo@55.0.10-canary-20260328-2049187npm error node_modules/exponpm error   peer expo@"55.0.10-canary-20260328-2049187" from expo-notifications@55.0.15-canary-20260328-2049187npm error   node_modules/expo-notificationsnpm error     expo-notifications@"^55.0.15-canary-20260328-2049187" from the root projectnpm errornpm error Fix the upstream dependency conflict, or retrynpm error this command with --force or --legacy-peer-depsnpm error to accept an incorrect (and potentially broken) dependency resolution.npm errornpm errornpm error For a full report see:npm error /home/expo/.npm/_logs/2026-03-28T17_56_28_329Z-eresolve-report.txtnpm error A complete log of this run can be found in: /home/expo/.npm/_logs/2026-03-28T17_56_28_329Z-debug-0.lognpm ci --include=dev exited with non-zero code: 1
+Fail job
+0msBuild failed  npm ci --include=dev exited with non-zero code: 1 remote, but this value will still be in the manifest available via expo-constants. It's recommended to remove this value from app config.
+✔ Using remote Android credentials (Expo server)
+✔ Using Keystore from configuration: Build Credentials x-pBA948mi (default)Compressing project files and uploading to EAS Build. Learn more: https://expo.fyi/eas-build-archive
+✔ Uploaded to EAS 7s
+✔ Computed project fingerprintSee logs: https://expo.dev/accounts/ben777/projects/tazakkur/builds/d16c7127-718a-42fe-bf2c-026a7eff29d3Waiting for build to complete. You can press Ctrl+C to exit.
+  Build queued...Start builds sooner in the priority queue.
+Sign up for a paid plan at https://expo.dev/accounts/ben777/settings/billingWaiting in Free tier queue
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| ✖ Build failed
+🤖 Android build failed:
+Unknown error. See logs of the Install dependencies build phase for more information.
+isa@MacBook-Pro-ISA frontend %Show more19:57Проблема в package.json — там указана canary версия expo-notifications которая требует expo 55, а у вас expo 54. Посмотрим:
+bashcat package.json | grep -E "expo-notifications|\"expo\""
+Пришлите вывод!Unknown error. See logs of the Install dependencies build phase for more information.
+isa@MacBook-Pro-ISA frontend % cat package.json | grep -E "expo-notifications|\"expo\""
+    "expo": "54.0.33",
+    "expo-notifications": "^55.0.15-canary-20260328-2049187",
+isa@MacBook-Pro-ISA frontend %19:57Вот и проблема! expo-notifications стоит canary версия 55, а expo 54. Исправим:
+bashsed -i '' 's/"expo-notifications": "\^55.0.15-canary-20260328-2049187"/"expo-notifications": "~0.29.0"/' package.json
+Затем переустановим зависимости и пересоберём:
+bashnpm install --legacy-peer-deps
+git add .
+git commit -m "fix expo-notifications version"
+eas build --platform android --profile previewErrored
+Mar 28, 2026 7:58 PM
+231ms
+44s
+8s
+53s
+13 days
+Logs
+Waiting to start
+6s
+Spin up build environment
+37s
+Read eas.json
+1ms
+Read package.json
+0ms
+Install dependencies
+1sRunning "npm ci --include=dev" in /home/expo/workingdir/build directorynpm error code ERESOLVEnpm error ERESOLVE could not resolvenpm errornpm error While resolving: react-native-reanimated@4.3.0npm error Found: react-native-worklets@0.5.1npm error node_modules/react-native-workletsnpm error   react-native-worklets@"0.5.1" from the root projectnpm errornpm error Could not resolve dependency:npm error peer react-native-worklets@"0.8.x" from react-native-reanimated@4.3.0npm error node_modules/react-native-reanimatednpm error   react-native-reanimated@"^4.3.0" from the root projectnpm error   peer react-native-reanimated@">=3.16.0 || >=4.0.0-" from @gorhom/bottom-sheet@5.2.8npm error   node_modules/@gorhom/bottom-sheetnpm error     @gorhom/bottom-sheet@"^5.2.8" from the root projectnpm error   1 more (expo-router)npm errornpm error Conflicting peer dependency: react-native-worklets@0.8.1npm error node_modules/react-native-workletsnpm error   peer react-native-worklets@"0.8.x" from react-native-reanimated@4.3.0npm error   node_modules/react-native-reanimatednpm error     react-native-reanimated@"^4.3.0" from the root projectnpm error     peer react-native-reanimated@">=3.16.0 || >=4.0.0-" from @gorhom/bottom-sheet@5.2.8npm error     node_modules/@gorhom/bottom-sheetnpm error       @gorhom/bottom-sheet@"^5.2.8" from the root projectnpm error     1 more (expo-router)npm errornpm error Fix the upstream dependency conflict, or retrynpm error this command with --force or --legacy-peer-depsnpm error to accept an incorrect (and potentially broken) dependency resolution.npm errornpm errornpm error For a full report see:npm error /home/expo/.npm/_logs/2026-03-28T17_59_33_451Z-eresolve-report.txtnpm error A complete log of this run can be found in: /home/expo/.npm/_logs/2026-03-28T17_59_33_451Z-debug-0.lognpm ci --include=dev exited with non-zero code: 1
+Fail job
+0msBuild failed  npm ci --include=dev exited with non-zero code: 1Show more20:01Теперь другой конфликт — react-native-worklets версия 0.5.1 но нужна 0.8.x. Исправим:
+bashsed -i '' 's/"react-native-worklets": "0.5.1"/"react-native-worklets": "0.8.1"/' package.json
+Затем:
+bashnpm install --legacy-peer-deps
+git add .
+git commit -m "fix worklets version"
+eas build --platform android --profile previewSee logs: https://expo.dev/accounts/ben777/projects/tazakkur/builds/8aefd59b-7137-4aad-96ee-144fe3915f09Waiting for build to complete. You can press Ctrl+C to exit.
+✖ Build failed🤖 Android build failed:
+Unknown error. See logs of the Install dependencies build phase for more information.
+isa@MacBook-Pro-ISA frontend % Errored
+Mar 28, 2026 8:02 PM
+185ms
+43s
+8s
+52s
+14 days
+Logs
+Waiting to start
+5s
+Spin up build environment
+37s
+Read eas.json
+1ms
+Read package.json
+1ms
+Install dependencies
+1sRunning "npm ci --include=dev" in /home/expo/workingdir/build directorynpm error code EUSAGEnpm errornpm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.npm errornpm error Missing: react-refresh@0.18.0 from lock filenpm error Missing: @react-native/metro-config@0.84.1 from lock filenpm error Missing: @react-native/js-polyfills@0.84.1 from lock filenpm error Missing: @react-native/metro-babel-transformer@0.84.1 from lock filenpm error Missing: @react-native/babel-preset@0.84.1 from lock filenpm error Missing: hermes-parser@0.32.0 from lock filenpm error Missing: @react-native/babel-plugin-codegen@0.84.1 from lock filenpm error Missing: babel-plugin-syntax-hermes-parser@0.32.0 from lock filenpm error Missing: react-refresh@0.14.2 from lock filenpm error Missing: @react-native/codegen@0.84.1 from lock filenpm error Missing: hermes-estree@0.32.0 from lock filenpm errornpm error Clean install a projectnpm errornpm error Usage:npm error npm cinpm errornpm error Options:npm error [--install-strategy <hoisted|nested|shallow|linked>] [--legacy-bundling]npm error [--global-style] [--omit <dev|optional|peer> [--omit <dev|optional|peer> ...]]npm error [--include <prod|dev|optional|peer> [--include <prod|dev|optional|peer> ...]]npm error [--strict-peer-deps] [--foreground-scripts] [--ignore-scripts] [--no-audit]npm error [--no-bin-links] [--no-fund] [--dry-run]npm error [-w|--workspace <workspace-name> [-w|--workspace <workspace-name> ...]]npm error [-ws|--workspaces] [--include-workspace-root] [--install-links]npm errornpm error aliases: clean-install, ic, install-clean, isntall-cleannpm errornpm error Run "npm help ci" for more infonpm error A complete log of this run can be found in: /home/expo/.npm/_logs/2026-03-28T18_03_24_914Z-debug-0.lognpm ci --include=dev exited with non-zero code: 1
+Fail job
+1msBuild failed  npm ci --include=dev exited with non-zero code: 1Show more20:04package-lock.json не синхронизирован с package.json. Нужно обновить его:
+bashnpm install --legacy-peer-deps
+git add package-lock.json
+git commit -m "update lock file"
+eas build --platform android --profile previewWaiting for build to complete. You can press Ctrl+C to exit.
+  Build queued...Start builds sooner in the priority queue.
+Sign up for a paid plan at https://expo.dev/accounts/ben777/settings/billingWaiting in Free tier queue
+|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| ✖ Build failed
+🤖 Android build failed:
+Unknown error. See logs of the Install dependencies build phase for more information.
+isa@MacBook-Pro-ISA frontend % npm errornpm error Run "npm help ci" for more infonpm error A complete log of this run can be found in: /home/expo/.npm/_logs/2026-03-28T18_06_34_105Z-debug-0.lognpm ci --include=dev exited with non-zero code: 1
+Fail job
+1msBuild failed  npm ci --include=dev exited with non-zero code: 1Show more20:07Нужно увидеть полный лог ошибки. Пришлите всё что написано в секции Install dependencies — прокрутите вверх в логах на сайте expo.dev и скопируйте весь текст оттуда.
+Или выполните в терминале:
+bashcat package.json | grep -E "react-native-worklets|react-native-reanimated|expo-notifications|\"expo\""
+Пришлите вывод!🤖 Android build failed:
+Unknown error. See logs of the Install dependencies build phase for more information.
+isa@MacBook-Pro-ISA frontend % cat package.json | grep -E "react-native-worklets|react-native-reanimated|expo-notifications|\"expo\""
+    "expo": "54.0.33",
+    "expo-notifications": "~0.29.0",
+    "react-native-reanimated": "^4.3.0",
+    "react-native-worklets": "0.8.1",
+isa@MacBook-Pro-ISA frontend %20:07Проблема в том что expo-notifications ~0.29.0 не совместима с expo 54. Давайте посмотрим правильную версию. Выполните:
+bashnpx expo install expo-notifications --fix
+Пришлите что покажет!а мы разве не сделали 5520:08Да, мы исправили с canary 55 на ~0.29.0, но это тоже неправильная версия для expo 54.
+Правильная версия для expo 54 — ~0.28.0. Исправим:
+bashsed -i '' 's/"expo-notifications": "~0.29.0"/"expo-notifications": "~0.28.0"/' package.json
+npm install --legacy-peer-deps
+git add .
+git commit -m "fix expo-notifications to 0.28"
+eas build --platform android --profile previewnpm errornpm error Run "npm help ci" for more infonpm error A complete log of this run can be found in: /home/expo/.npm/_logs/2026-03-28T18_09_54_232Z-debug-0.lognpm ci --include=dev exited with non-zero code: 1
+Fail job
+1msBuild failed  npm ci --include=dev exited with non-zero code: 120:10Лог обрезан, не видно главной ошибки. Зайдите на сайт по ссылке которую показывал терминал:
+https://expo.dev/accounts/ben777/projects/tazakkur/builds/...
+Там нажмите на "Install dependencies" и скопируйте весь текст ошибки оттуда. Нужно увидеть что именно не может установиться!Logs
+Waiting to start
+9s
+Spin up build environment
+37s
+Read eas.json
+0ms
+Read package.json
+1ms
+Install dependencies
+1sRunning "npm ci --include=dev" in /home/expo/workingdir/build directorynpm error code EUSAGEnpm errornpm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.npm errornpm error Missing: react-refresh@0.18.0 from lock filenpm error Missing: @react-native/metro-config@0.84.1 from lock filenpm error Missing: @react-native/js-polyfills@0.84.1 from lock filenpm error Missing: @react-native/metro-babel-transformer@0.84.1 from lock filenpm error Missing: @react-native/babel-preset@0.84.1 from lock filenpm error Missing: hermes-parser@0.32.0 from lock filenpm error Missing: @react-native/babel-plugin-codegen@0.84.1 from lock filenpm error Missing: babel-plugin-syntax-hermes-parser@0.32.0 from lock filenpm error Missing: react-refresh@0.14.2 from lock filenpm error Missing: @react-native/codegen@0.84.1 from lock filenpm error Missing: hermes-estree@0.32.0 from lock filenpm errornpm error Clean install a projectnpm errornpm error Usage:npm error npm cinpm errornpm error Options:npm error [--install-strategy <hoisted|nested|shallow|linked>] [--legacy-bundling]npm error [--global-style] [--omit <dev|optional|peer> [--omit <dev|optional|peer> ...]]npm error [--include <prod|dev|optional|peer> [--include <prod|dev|optional|peer> ...]]npm error [--strict-peer-deps] [--foreground-scripts] [--ignore-scripts] [--no-audit]npm error [--no-bin-links] [--no-fund] [--dry-run]npm error [-w|--workspace <workspace-name> [-w|--workspace <workspace-name> ...]]npm error [-ws|--workspaces] [--include-workspace-root] [--install-links]npm errornpm error aliases: clean-install, ic, install-clean, isntall-cleannpm errornpm error Run "npm help ci" for more infonpm error A complete log of this run can be found in: /home/expo/.npm/_logs/2026-03-28T18_09_54_232Z-debug-0.lognpm ci --include=dev exited with non-zero code: 1
+Fail job
+1msBuild failed  npm ci --include=dev exited with non-zero code: 1Show more20:11package-lock.json опять не синхронизирован. Проблема в том что мы меняем package.json но lock файл не обновляется правильно. Удалим его и создадим заново:
+bashrm package-lock.json
+npm install --legacy-peer-deps
+git add .
+git commit -m "regenerate lock file"
+eas build --platform android --profile previewisa@MacBook-Pro-ISA frontend % rm package-lock.json
+npm install --legacy-peer-deps
+git add .
+git commit -m "regenerate lock file"
+eas build --platform android --profile preview
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: '@react-native/assets-registry@0.81.5',
+npm warn EBpasted20:11Загружается! Ждите 10-15 минут, не закрывайте терминал. 🎉
+Терминал сейчас показывает прогресс сборки — пришлите что появится в конце!✔ Computed project fingerprintSee logs: https://expo.dev/accounts/ben777/projects/tazakkur/builds/df76c1a7-b52d-48e3-b3c3-e261b8f5fa0dWaiting for build to complete. You can press Ctrl+C to exit.
+✖ Build failed🤖 Android build failed:
+Unknown error. See logs of the Install dependencies build phase for more information.
+isa@MacBook-Pro-ISA frontend %20:13Зайдите по ссылке и скопируйте полный лог из "Install dependencies":
+https://expo.dev/accounts/ben777/projects/tazakkur/builds/df76c1a7-b52d-48e3-b3c3-e261b8f5fa0d
+Нажмите на "Install dependencies" → скопируйте весь текст внутри и пришлите сюда!вроде одна и та же ошибка
+Install dependencies
+2sRunning "npm ci --include=dev" in /home/expo/workingdir/build directorynpm error code EUSAGEnpm errornpm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.npm errornpm error Missing: react-refresh@0.18.0 from lock filenpm error Missing: @react-native/metro-config@0.84.1 from lock filenpm error Missing: @react-native/js-polyfills@0.84.1 from lock filenpm error Missing: @react-native/metro-babel-transformer@0.84.1 from lock filenpm error Missing: @react-native/babel-preset@0.84.1 from lock filenpm error Missing: hermes-parser@0.32.0 from lock filenpm error Missing: @react-native/babel-plugin-codegen@0.84.1 from lock filenpm error Missing: babel-plugin-syntax-hermes-parser@0.32.0 from lock filenpm error Missing: react-refresh@0.14.2 from lock filenpm error Missing: @react-native/codegen@0.84.1 from lock filenpm error Missing: hermes-estree@0.32.0 from lock filenpm errornpm error Clean install a projectnpm errornpm error Usage:npm error npm cinpm errornpm error Options:npm error [--install-strategy <hoisted|nested|shallow|linked>] [--legacy-bundling]npm error [--global-style] [--omit <dev|optional|peer> [--omit <dev|optional|peer> ...]]npm error [--include <prod|dev|optional|peer> [--include <prod|dev|optional|peer> ...]]npm error [--strict-peer-deps] [--foreground-scripts] [--ignore-scripts] [--no-audit]npm error [--no-bin-links] [--no-fund] [--dry-run]npm error [-w|--workspace <workspace-name> [-w|--workspace <workspace-name> ...]]npm error [-ws|--workspaces] [--include-workspace-root] [--install-links]npm errornpm error aliases: clean-install, ic, install-clean, isntall-cleannpm errornpm error Run "npm help ci" for more infonpm error A complete log of this run can be found in: /home/expo/.npm/_logs/2026-03-28T18_12_31_592Z-debug-0.lognpm ci --include=dev exited with non-zero code: 1
+Fail job
+0msBuild failed  npm ci --include=dev exited with non-zero code: 1Show more20:13Понял проблему! Expo сервер требует @react-native версии 0.84.1, а у вас в проекте 0.81.5. Lock файл генерируется локально с одними версиями, а на сервере ожидаются другие.
+Нужно указать Expo использовать правильную версию Node и npm при установке. Добавим флаг в eas.json:
+bashcat > eas.json << 'EOF'
+{
+  "cli": {
+    "version": ">= 13.2.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "ios": {
+        "autoIncrement": true
+      },
+      "env": {
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./playstore-service-account.json",
+        "track": "internal"
+      }
+    }
+  }
+}
+EOF
+Затем:
+bashgit add .
+git commit -m "add legacy peer deps to eas"
+eas build --platform android --profile previewormation.
+isa@MacBook-Pro-ISA frontend % cat > eas.json << 'EOF'
+{
+  "cli": {
+    "version": ">= 13.2.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "ios": {
+        "autoIncrement": true
+      },
+      "env": {
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./playstore-service-account.json",
+        "track": "internal"
+      }
+    }
+  }
+}
+EOF
+isa@MacBook-Pro-ISA frontend % git add .
+git commit -m "add legacy peer deps to eas"
+eas build --platform android --profile preview
+[main af31140] add legacy peer deps to eas
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+Resolved "preview" environment for the build. Learn more: https://docs.expo.dev/eas/environment-variables/#setting-the-environment-for-your-builds
+NShow more20:14Загружается! Ждите результата — не закрывайте терминал. Пришлите что появится в конце! 🤞что ты сделал?20:16Добавил в eas.json переменную окружения:
+json"NPM_CONFIG_LEGACY_PEER_DEPS": "true"
+Это говорит серверу Expo — при установке зависимостей использовать флаг --legacy-peer-deps, то есть не проверять строго совместимость версий. Именно это нам помогало локально когда мы писали npm install --legacy-peer-deps.
+Раньше мы добавляли этот флаг только локально, а сервер Expo устанавливал зависимости по-своему и падал. Теперь сервер тоже будет использовать тот же флаг.Read package.json
+
+1ms
+
+
+Using package.json:
+{
+  "name": "frontend",
+  "main": "expo-router/entry",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "expo start",
+    "reset-project": "node ./scripts/reset-project.js",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web":pasted20:17Прогресс! Зависимости установились, но теперь новая ошибка — в коде используется @env для хранения секретных переменных (URL бэкенда), но этот модуль не настроен.
+Нужно создать файл .env с переменной. Скажите — у вас есть URL бэкенда? Это адрес сервера к которому подключается приложение.
+Если не знаете — пока поставим заглушку:
+bashecho "REACT_APP_BACKEND_URL=http://localhost:3000" > .env
+git add .env
+git commit -m "add env file"
+eas build --platform android --profile previewЯ вижу, что у вас большой разговор о настройке React Native/Expo приложения Tazakkur. Давайте продолжим с того момента, где остановились.
+
+Вы были на этапе подготовки приложения к сборке для Android. Последняя инструкция была установить EAS CLI.
+
+Вот что нужно сделать дальше:
+
+Шаг 1 — Установите EASpastedвот чат когда akp установился20:18Вижу! Значит у вас уже есть рабочий APK для другого проекта (otkritprog_peredaca4adminpan).
+Сейчас мы собираем APK для этого проекта (otkritprog_peredaca6 — Tazakkur).
+Возвращаемся к нашей сборке. Последнее что нужно сделать — добавить файл .env с URL бэкенда. Скажите — у этого проекта есть бэкенд? Если да, какой у него адрес? Или это тот же бэкенд что и в предыдущем проекте?в чате том написано20:18В том чате написано:
+uvicorn server:app --host 0.0.0.0 --port 8001 --reload
+И IP проверялся командой ifconfig. Но нам нужен именно IP вашего MacBook в WiFi сети. Выполните:
+bashifconfig | grep "inet " | grep -v 127.0.0.1
+Пришлите результат — возьмём IP и создадим .env файл!Unknown error. See logs of the Bundle JavaScript build phase for more information.
+isa@MacBook-Pro-ISA frontend % ifconfig | grep "inet " | grep -v 127.0.0.1
+inet 192.168.1.8 netmask 0xffffff00 broadcast 192.168.1.255
+isa@MacBook-Pro-ISA frontend %20:19Отлично! Ваш IP — 192.168.1.8. Создаём .env файл:
+bashecho "REACT_APP_BACKEND_URL=http://192.168.1.8:8001" > .env
+git add .env
+git commit -m "add env file"
+eas build --platform android --profile previewisa@MacBook-Pro-ISA frontend % ifconfig | grep "inet " | grep -v 127.0.0.1
+inet 192.168.1.8 netmask 0xffffff00 broadcast 192.168.1.255
+isa@MacBook-Pro-ISA frontend % echo "REACT_APP_BACKEND_URL=http://192.168.1.8:8001" > .env
+git add .env
+git commit -m "add env file"
+eas build --platform android --profile preview
+[main b15d279] add env file
+ 1 file changed, 1 insertion(+)
+ create mode 100644 .env
+Resolved "preview" environment for the build. Learn more: https://docs.expo.dev/eas/environment-variables/#setting-the-environment-for-your-builds
+No environment variables with visibility "Plain text" and "Sensitive" found for the "preview" environment on EAS.
+Environment variables loaded from the "preview" build profile "env" configuration: NPM_CONFIG_LEGACY_PEER_DEPS.android.versionCode field in app config is ignored when version source is set to remote, but this value will still be in the manifest available via expo-constants. It's recommended to remove this value from app config.
+✔ Using remote Android credentials (Expo server)
+✔ Using Keystore from configuration: Build Credentials x-pBA948mi (default)Compressing project files and uploading to EAS Build. Learn more: https://expo.fyi/eas-build-archive
+✔ Uploaded to EAS 11s
+⌛️ Computing the project fingerprint is taking longer than expected...
+⏩ To skip this step, set the environment variable: EAS_SKIP_AUTO_FINGERPRINT=1
+✔ Computed project fingerprintSee logs: https://expo.dev/accounts/ben777/projects/tazakkur/builds/0b23f6ba-1f45-4234-9c90-e9083f0b53d5Waiting for build to complete. You can press Ctrl+C to exit.
+⠹ Build in progress...Show more20:20Отлично! Сборка идёт! 🎉 Ждите 10-15 минут, не закрывайте терминал. Пришлите что появится в конце!посмотри тот чат и скажи какие могут сейчас ошибки20:21Смотрю тот чат и вижу что там были такие проблемы после установки APK:
+
+Приложение сразу закрывалось — бэкенд не был запущен на MacBook
+Неправильный IP — если WiFi сменился, IP меняется и приложение не находит сервер
+
+Для этого проекта похожие риски:
+Что нужно будет сделать когда APK установится:
+
+Запустить бэкенд на MacBook (если он есть у этого проекта)
+Телефон и MacBook должны быть в одной WiFi сети
+
+Но сначала — давайте дождёмся результата текущей сборки. Там ещё была ошибка с @env модулем — мы добавили .env файл, посмотрим поможет ли это.
+Пришлите что покажет терминал когда сборка завершится! 🤞давай проверим есть ли бекенд20:21Выполните:
+bashls ../../
+Пришлите что покажет — посмотрим что есть в папке проекта!Last login: Sat Mar 28 19:34:29 on ttys000
+isa@MacBook-Pro-ISA otkritprog_peredaca6-main % ls ../../
+Applications
+Applications (Parallels)
+Creative Cloud Files Personal Account f6dbwgfghy@privaterelay.appleid.com 02981E9964EDFD2B0A495EEE@AdobeID
+Desktop
+Documents
+Downloads
+HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Wondershare\Wondershare Filmora
+Library
+MediaInfo
+MediaLibrary
+Movies
+Music
+Parallels
+Pictures
+ProjectBackup
+Public
+Templates
+app.js
+avatar
+get-pip.py
+isa_session.session
+my-node-app
+myenv
+node.pkg
+node_modules
+openfx_plugin_cache.xml
+package-lock.json
+package.json
+print("Hello, World!")
+rockyou.txt
+telegram_bot
+telegram_bots
+Без названия.rtf
+после очистки чата
+isa@MacBook-Pro-ISA otkritprog_peredaca6-main %Show more20:22Вижу что нет папки backend — только frontend. Значит бэкенд для этого проекта либо:
+
+В интернете (на каком-то сервере) — тогда URL уже прописан где-то в коде
+Не существует — проект незакончен
