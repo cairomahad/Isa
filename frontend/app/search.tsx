@@ -10,7 +10,7 @@ import {
 import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Shadows, Typography } from '../../constants/colors';
+import { Colors, Shadows, Typography } from '../constants/colors';
 
 import { router } from 'expo-router';
 
