@@ -1,6 +1,6 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Modal, FlatList, RefreshControl,
+  ActivityIndicator, Modal, FlatList, RefreshControl, Switch, Alert,
 } from 'react-native';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,13 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { Colors, Shadows } from '../../constants/colors';
 import { CITIES, PRAYER_NAMES, City } from '../../constants/cities';
+import {
+  requestNotificationPermissions,
+  schedulePrayerNotifications,
+  cancelAllPrayerNotifications,
+  arePrayerNotificationsEnabled,
+  sendTestNotification,
+} from '../../services/notificationService';
 
 type PrayerTimes = {
   Fajr: string;
@@ -64,7 +71,40 @@ export default function PrayersScreen() {
   const [cityModalVisible, setCityModalVisible] = useState(false);
   const [countdown, setCountdown] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Проверка статуса уведомлений при загрузке
+  useEffect(() => {
+    arePrayerNotificationsEnabled().then(setNotificationsEnabled);
+  }, []);
+
+  // Включение/выключение уведомлений
+  const toggleNotifications = async (value: boolean) => {
+    if (value) {
+      // Запрос разрешения
+      const granted = await requestNotificationPermissions();
+      if (!granted) {
+        Alert.alert(
+          'Разрешение отклонено',
+          'Пожалуйста, разрешите уведомления в настройках телефона'
+        );
+        return;
+      }
+
+      // Планируем уведомления
+      if (prayerTimes) {
+        await schedulePrayerNotifications(prayerTimes);
+        setNotificationsEnabled(true);
+        Alert.alert('✅ Готово', 'Уведомления о намазе включены');
+      }
+    } else {
+      // Отключаем уведомления
+      await cancelAllPrayerNotifications();
+      setNotificationsEnabled(false);
+      Alert.alert('Выключено', 'Уведомления о намазе отключены');
+    }
+  };
 
   const loadPrayerTimes = useCallback(async (cityName?: string) => {
     const city = CITIES.find((c) => c.label === (cityName || selectedCity)) || CITIES[0];
@@ -201,6 +241,25 @@ export default function PrayersScreen() {
           </View>
         ) : (
           <>
+            {/* Notification Toggle */}
+            <View style={styles.notificationCard}>
+              <View style={styles.notificationLeft}>
+                <Ionicons name="notifications" size={24} color={Colors.primary} />
+                <View style={styles.notificationText}>
+                  <Text style={styles.notificationTitle}>Уведомления о намазе</Text>
+                  <Text style={styles.notificationSubtitle}>
+                    Напоминания за 5 минут до времени
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={notificationsEnabled}
+                onValueChange={toggleNotifications}
+                trackColor={{ false: Colors.border, true: Colors.primaryLight }}
+                thumbColor={notificationsEnabled ? Colors.primary : Colors.textSecondary}
+              />
+            </View>
+
             {/* Next Prayer Card */}
             {nextPrayer && (
               <View style={styles.nextCard} testID="next-prayer-card">
@@ -340,6 +399,39 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   countdownText: { fontSize: 14, fontWeight: '600', color: Colors.background },
+  
+  // Notification card
+  notificationCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    ...Shadows.card,
+  },
+  notificationLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  notificationText: {
+    flex: 1,
+  },
+  notificationTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 2,
+  },
+  notificationSubtitle: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+  },
+  
   timesCard: {
     backgroundColor: Colors.cardDark,
     borderRadius: 16,

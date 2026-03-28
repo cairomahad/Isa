@@ -1,14 +1,18 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator,
+  ActivityIndicator, Dimensions,
 } from 'react-native';
 import { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { Colors, Shadows } from '../../constants/colors';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type Lesson = {
   id: string;
@@ -37,6 +41,7 @@ export default function LessonDetailScreen() {
   const router = useRouter();
   const { session } = useAuthStore();
   const [lesson, setLesson] = useState<Lesson | null>(null);
+  const [allLessons, setAllLessons] = useState<Lesson[]>([]);
   const [quizTasks, setQuizTasks] = useState<QuizTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [inQuiz, setInQuiz] = useState(false);
@@ -45,10 +50,14 @@ export default function LessonDetailScreen() {
   const [score, setScore] = useState(0);
   const [quizDone, setQuizDone] = useState(false);
 
+  // Swipe gesture
+  const translateX = useSharedValue(0);
+
   useEffect(() => {
     const fetch = async () => {
       if (!id) return;
       try {
+        // Fetch current lesson
         const { data: l } = await supabase
           .from('video_lessons')
           .select('*')
@@ -56,10 +65,20 @@ export default function LessonDetailScreen() {
           .single();
         setLesson(l || DEMO_LESSON);
 
+        // Fetch all lessons in same category for swipe navigation
+        if (l) {
+          const { data: allInCategory } = await supabase
+            .from('video_lessons')
+            .select('*')
+            .eq('category', l.category)
+            .order('id');
+          setAllLessons(allInCategory || []);
+        }
+
         const { data: quiz } = await supabase
           .from('quiz_tasks')
           .select('*')
-          .eq('lesson_id', id);
+          .eq('video_id', id);
         setQuizTasks(quiz || []);
       } catch {
         setLesson(DEMO_LESSON);
@@ -69,6 +88,41 @@ export default function LessonDetailScreen() {
     };
     fetch();
   }, [id]);
+
+  // Swipe to next/previous lesson
+  const navigateToLesson = (direction: 'next' | 'prev') => {
+    if (!lesson || allLessons.length === 0) return;
+    
+    const currentIndex = allLessons.findIndex(l => l.id === lesson.id);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
+    
+    if (targetIndex >= 0 && targetIndex < allLessons.length) {
+      const nextLesson = allLessons[targetIndex];
+      router.push(`/lesson/${nextLesson.id}`);
+    }
+  };
+
+  const swipeGesture = Gesture.Pan()
+    .onUpdate((event) => {
+      translateX.value = event.translationX;
+    })
+    .onEnd((event) => {
+      if (Math.abs(event.translationX) > SCREEN_WIDTH * 0.3) {
+        // Swipe threshold: 30% of screen width
+        if (event.translationX > 0) {
+          runOnJS(navigateToLesson)('prev');
+        } else {
+          runOnJS(navigateToLesson)('next');
+        }
+      }
+      translateX.value = withSpring(0);
+    });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
 
   const handleAnswer = (answer: string) => {
     setSelectedAnswer(answer);
