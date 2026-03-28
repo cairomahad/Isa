@@ -26,7 +26,6 @@
     },
     "android": {
       "package": "com.tazakkur.app",
-      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/mosque-logo.png",
         "backgroundColor": "#F8F6F2"
@@ -76,7 +75,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "tazakkur-islamic-app"
+        "projectId": "b0a306ed-8647-4ec0-a973-99cb3bba0466"
       }
     }
   }

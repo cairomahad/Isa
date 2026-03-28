@@ -5,9 +5,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { Colors, Shadows } from '../../constants/colors';
-import { REACT_APP_BACKEND_URL } from '@env';
 
-const API_URL = REACT_APP_BACKEND_URL;
+
+const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
 
 type UserRank = {
   id: string;

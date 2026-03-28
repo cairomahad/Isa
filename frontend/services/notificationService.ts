@@ -1,4 +1,5 @@
 import * as Notifications from 'expo-notifications';
+import { SchedulableTriggerInputTypes } from 'expo-notifications';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -80,7 +81,6 @@ export async function schedulePrayerNotifications(prayerTimes: PrayerTimes): Pro
   // Сначала отменяем старые
   await cancelAllPrayerNotifications();
 
-  const today = new Date();
   const prayers = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'] as const;
 
   for (const prayer of prayers) {
@@ -88,30 +88,27 @@ export async function schedulePrayerNotifications(prayerTimes: PrayerTimes): Pro
     if (!time) continue;
 
     const [hours, minutes] = time.split(':').map(Number);
-    const triggerDate = new Date(today);
-    triggerDate.setHours(hours, minutes, 0, 0);
 
-    // Если время уже прошло сегодня, планируем на завтра
-    if (triggerDate < new Date()) {
-      triggerDate.setDate(triggerDate.getDate() + 1);
-    }
+    // Вычисляем время за 5 минут до намаза
+    const totalReminderMinutes = hours * 60 + minutes - 5;
+    const reminderHour = Math.floor(((totalReminderMinutes % 1440) + 1440) % 1440 / 60);
+    const reminderMinute = ((totalReminderMinutes % 60) + 60) % 60;
 
     // Основное уведомление (за 5 минут до времени намаза)
-    const reminderDate = new Date(triggerDate);
-    reminderDate.setMinutes(reminderDate.getMinutes() - 5);
-
     await Notifications.scheduleNotificationAsync({
       identifier: `prayer-${prayer.toLowerCase()}-reminder`,
       content: {
-        title: `⏰ Скоро ${PRAYER_NAMES[prayer]}`,
+        title: `Скоро ${PRAYER_NAMES[prayer]}`,
         body: `Через 5 минут начнётся время ${PRAYER_NAMES[prayer]} (${time})`,
         sound: 'default',
         data: { type: 'prayer-reminder', prayer },
       },
       trigger: {
-        channelId: 'prayer-times',
-        date: reminderDate,
+        type: SchedulableTriggerInputTypes.CALENDAR,
         repeats: true,
+        hour: reminderHour,
+        minute: reminderMinute,
+        channelId: 'prayer-times',
       },
     });
 
@@ -119,15 +116,17 @@ export async function schedulePrayerNotifications(prayerTimes: PrayerTimes): Pro
     await Notifications.scheduleNotificationAsync({
       identifier: `prayer-${prayer.toLowerCase()}`,
       content: {
-        title: `🕌 ${PRAYER_NAMES[prayer]}`,
+        title: `${PRAYER_NAMES[prayer]}`,
         body: `Наступило время ${PRAYER_NAMES[prayer]}. Совершите намаз!`,
         sound: 'default',
         data: { type: 'prayer-time', prayer },
       },
       trigger: {
-        channelId: 'prayer-times',
-        date: triggerDate,
+        type: SchedulableTriggerInputTypes.CALENDAR,
         repeats: true,
+        hour: hours,
+        minute: minutes,
+        channelId: 'prayer-times',
       },
     });
   }
@@ -159,10 +158,13 @@ export async function getScheduledPrayerNotifications() {
 export async function sendTestNotification(): Promise<void> {
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: '🕌 Tazakkur',
+      title: 'Tazakkur',
       body: 'Тестовое уведомление работает!',
       sound: 'default',
     },
-    trigger: { seconds: 5 },
+    trigger: {
+      type: SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: 5,
+    },
   });
 }

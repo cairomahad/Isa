@@ -59,7 +59,7 @@ export default function LessonsScreen() {
 
   const fetchLessons = async () => {
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://tazakkur-islamic.preview.emergentagent.com';
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://mobile-debug-deploy.preview.emergentagent.com';
       
       // Fetch lessons from backend
       const response = await fetch(`${backendUrl}/api/lessons?user_id=${user?.id || 'demo'}`);

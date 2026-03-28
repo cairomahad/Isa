@@ -12,10 +12,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Shadows, Typography } from '../../constants/colors';
 import { useAuthStore } from '../../store/authStore';
-import { REACT_APP_BACKEND_URL } from '@env';
+
 import { router } from 'expo-router';
 
-const API_URL = REACT_APP_BACKEND_URL;
+const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
 
 interface UserProfile {
   user: {

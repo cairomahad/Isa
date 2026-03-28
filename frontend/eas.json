@@ -15,14 +15,21 @@
       },
       "ios": {
         "simulator": true
+      },
+      "env": {
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
+        "EXPO_PUBLIC_BACKEND_URL": "http://192.168.1.8:8001"
       }
     },
     "production": {
       "android": {
-        "buildType": "aab"
+        "buildType": "app-bundle"
       },
       "ios": {
         "autoIncrement": true
+      },
+      "env": {
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       }
     }
   },
@@ -31,11 +38,6 @@
       "android": {
         "serviceAccountKeyPath": "./playstore-service-account.json",
         "track": "internal"
-      },
-      "ios": {
-        "appleId": "your-apple-id@example.com",
-        "ascAppId": "your-app-id",
-        "appleTeamId": "your-team-id"
       }
     }
   }

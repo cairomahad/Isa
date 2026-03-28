@@ -9,9 +9,9 @@ import * as Haptics from 'expo-haptics';
 import Svg, { Circle } from 'react-native-svg';
 import { Colors, Shadows } from '../../constants/colors';
 import { useAuthStore } from '../../store/authStore';
-import { REACT_APP_BACKEND_URL } from '@env';
 
-const API_URL = REACT_APP_BACKEND_URL;
+
+const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
 
 type DhikrItem = {
   id: string;

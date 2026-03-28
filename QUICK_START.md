@@ -12,7 +12,7 @@
 - Намазы, Хадисы, Рейтинг, Настройки
 
 ✅ **Установлено**: react-native-svg, expo-haptics, все зависимости
-✅ **Preview работает**: https://tazakkur-islamic.preview.emergentagent.com
+✅ **Preview работает**: https://mobile-debug-deploy.preview.emergentagent.com
 
 ## 🔴 НУЖНО СДЕЛАТЬ:
 
@@ -68,8 +68,8 @@ missed_prayers: { user_id, fajr, zuhr, asr, maghrib, isha, total, last_updated }
 ## 🔧 ТЕХНИЧЕСКИЕ ДЕТАЛИ:
 
 **URLs:**
-- Frontend: `https://tazakkur-islamic.preview.emergentagent.com`
-- Backend API: `https://tazakkur-islamic.preview.emergentagent.com/api`
+- Frontend: `https://mobile-debug-deploy.preview.emergentagent.com`
+- Backend API: `https://mobile-debug-deploy.preview.emergentagent.com/api`
 
 **MongoDB:**
 - Connection: `mongodb://localhost:27017`
