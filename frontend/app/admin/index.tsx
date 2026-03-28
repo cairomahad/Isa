@@ -1,5 +1,5 @@
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions,
 } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
@@ -7,6 +7,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Shadows } from '../../constants/colors';
 import { useAuthStore } from '../../store/authStore';
+import { REACT_APP_BACKEND_URL } from '@env';
+
+const API_URL = REACT_APP_BACKEND_URL;
+const { width } = Dimensions.get('window');
 
 type AdminStats = {
   total_users: number;
@@ -40,8 +44,7 @@ export default function AdminPanel() {
 
   const fetchStats = async () => {
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://tazakkur-islamic.preview.emergentagent.com';
-      const response = await fetch(`${backendUrl}/api/admin/stats`);
+      const response = await fetch(`${API_URL}/api/admin/stats`);
       
       if (response.ok) {
         const data = await response.json();

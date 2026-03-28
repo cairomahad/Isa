@@ -43,9 +43,17 @@ export default function HomeScreen() {
             <Text style={styles.greeting}>Ас-саляму алейкум,</Text>
             <Text style={styles.name}>{user?.display_name || 'Брат'} 👋</Text>
           </View>
-          <View style={styles.pointsBadge}>
-            <Ionicons name="star" size={18} color={Colors.gold} />
-            <Text style={styles.pointsText}>{userPoints}</Text>
+          <View style={styles.headerRight}>
+            <TouchableOpacity 
+              style={styles.searchButton}
+              onPress={() => router.push('/search')}
+            >
+              <Ionicons name="search" size={22} color={Colors.textPrimary} />
+            </TouchableOpacity>
+            <View style={styles.pointsBadge}>
+              <Ionicons name="star" size={18} color={Colors.gold} />
+              <Text style={styles.pointsText}>{userPoints}</Text>
+            </View>
           </View>
         </View>
 
@@ -195,6 +203,20 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary, 
     marginTop: 4,
     letterSpacing: -0.5,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  searchButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Shadows.card,
   },
   pointsBadge: {
     flexDirection: 'row',

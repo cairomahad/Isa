@@ -3,9 +3,11 @@ import {
 } from 'react-native';
 import { useEffect, useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { Colors, Shadows } from '../../constants/colors';
+import { REACT_APP_BACKEND_URL } from '@env';
+
+const API_URL = REACT_APP_BACKEND_URL;
 
 type UserRank = {
   id: string;
@@ -53,26 +55,27 @@ export default function RatingScreen() {
 
   const fetchRating = useCallback(async () => {
     try {
-      const { data } = await supabase
-        .from('users')
-        .select('id, display_name, points')
-        .gt('points', 0)
-        .order('points', { ascending: false })
-        .limit(10);
-
-      if (data && data.length > 0) {
-        const ranked = data.map((u: any, i: number) => ({ ...u, rank: i + 1 }));
+      const response = await fetch(`${API_URL}/api/leaderboard?limit=50`);
+      const data = await response.json();
+      
+      if (data.leaderboard && data.leaderboard.length > 0) {
+        const ranked = data.leaderboard.map((entry: any) => ({
+          id: entry.user_id,
+          display_name: entry.name,
+          points: entry.points,
+          rank: entry.rank
+        }));
         setUsers(ranked);
+        
         if (currentUser) {
-          const found = ranked.find((u: UserRank) =>
-            u.display_name === currentUser.display_name || u.id === currentUser.id
-          );
+          const found = ranked.find((u: UserRank) => u.id === currentUser.user_id);
           setMyRank(found?.rank || null);
         }
       } else {
         setUsers(DEMO_USERS);
       }
-    } catch {
+    } catch (error) {
+      console.error('Error fetching leaderboard:', error);
       setUsers(DEMO_USERS);
     } finally {
       setLoading(false);

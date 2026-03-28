@@ -11,10 +11,12 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { Colors } from '../../constants/colors';
 import { CITIES } from '../../constants/cities';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { user, setUser, session, selectedCity, setCity } = useAuthStore();
+  const { toggleTheme, isDark } = useTheme();
   const [name, setName] = useState(user?.display_name || '');
   const [editingName, setEditingName] = useState(false);
   const [savingName, setSavingName] = useState(false);
@@ -196,11 +198,31 @@ export default function SettingsScreen() {
           <Section title="Общие" />
           <View style={styles.card}>
             <Row
+              icon="search"
+              label="Поиск"
+              onPress={() => router.push('/search')}
+            />
+            <View style={styles.rowDivider} />
+            <Row
               icon="location"
               label="Город намазов"
               value={selectedCity}
               testId="city-setting"
             />
+            <View style={styles.rowDivider} />
+            <View style={styles.row}>
+              <Ionicons name="moon" size={20} color={Colors.gold} style={styles.rowIcon} />
+              <View style={styles.rowContent}>
+                <Text style={styles.rowLabel}>Темная тема</Text>
+              </View>
+              <Switch
+                value={isDark}
+                onValueChange={toggleTheme}
+                trackColor={{ false: Colors.darkGreen, true: Colors.gold }}
+                thumbColor={Colors.textPrimary}
+                testID="theme-toggle"
+              />
+            </View>
             <View style={styles.rowDivider} />
             <View style={styles.row}>
               <Ionicons name="notifications" size={20} color={Colors.gold} style={styles.rowIcon} />
@@ -216,6 +238,26 @@ export default function SettingsScreen() {
               />
             </View>
           </View>
+
+          {/* Admin Panel */}
+          {user?.role === 'admin' && (
+            <>
+              <Section title="Админ" />
+              <View style={styles.card}>
+                <Row
+                  icon="shield-checkmark"
+                  label="Админ панель"
+                  onPress={() => router.push('/admin')}
+                />
+                <View style={styles.rowDivider} />
+                <Row
+                  icon="create"
+                  label="Управление контентом"
+                  onPress={() => router.push('/admin/content')}
+                />
+              </View>
+            </>
+          )}
 
           {/* Sign out */}
           <TouchableOpacity style={styles.signOutBtn} onPress={signOut} testID="sign-out-btn">

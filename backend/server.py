@@ -189,6 +189,94 @@ class ReviewHomeworkRequest(BaseModel):
     grade: int
     comment: str
 
+# Zikr Models
+class ZikrItem(BaseModel):
+    id: str
+    arabic: str
+    transliteration: str
+    translation: str
+    goal: int
+    reward_points: int
+    category: str = "daily"  # daily, morning, evening
+
+class ZikrProgress(BaseModel):
+    user_id: str
+    zikr_id: str
+    count: int
+    completed: bool
+    date: str
+
+class RecordZikrRequest(BaseModel):
+    user_id: str
+    zikr_id: str
+    count: int
+
+# Quiz/Test Models
+class QuizQuestion(BaseModel):
+    id: str
+    lesson_id: str
+    question: str
+    options: List[str]
+    correct_answer: int  # index
+    points: int = 5
+
+class QuizAttempt(BaseModel):
+    id: str
+    user_id: str
+    lesson_id: str
+    score: int
+    total_questions: int
+    passed: bool
+    attempted_at: str
+
+class SubmitQuizRequest(BaseModel):
+    user_id: str
+    lesson_id: str
+    answers: List[int]  # indices
+
+# Achievements Models
+class Achievement(BaseModel):
+    id: str
+    title: str
+    description: str
+    icon: str
+    requirement_type: str  # lessons_completed, points_earned, streak_days
+    requirement_value: int
+    points_reward: int
+
+class UserAchievement(BaseModel):
+    user_id: str
+    achievement_id: str
+    unlocked_at: str
+    title: str
+    icon: str
+
+# Content Management Models
+class UpdateHadithRequest(BaseModel):
+    id: str
+    arabic_text: Optional[str] = None
+    russian_text: Optional[str] = None
+    source: Optional[str] = None
+    image_url: Optional[str] = None
+
+class UpdateStoryRequest(BaseModel):
+    id: str
+    title: Optional[str] = None
+    text: Optional[str] = None
+    image_url: Optional[str] = None
+
+# Search Models
+class SearchRequest(BaseModel):
+    query: str
+    types: List[str] = ["lessons", "hadiths", "stories"]  # what to search
+
+class SearchResult(BaseModel):
+    type: str  # lesson, hadith, story
+    id: str
+    title: str
+    snippet: str
+    relevance: float
+
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
 async def root():
@@ -239,7 +327,7 @@ async def get_prayer_times(city: str = Query("moscow", description="City slug"))
         
         # Call Aladhan API
         async with httpx.AsyncClient(follow_redirects=True) as client:
-            url = f"http://api.aladhan.com/v1/timings"
+            url = "http://api.aladhan.com/v1/timings"
             params = {
                 "latitude": city_data["lat"],
                 "longitude": city_data["lon"],
@@ -1615,6 +1703,306 @@ async def get_file(bucket: str, filename: str):
         logger.error(f"Error getting file: {e}")
         raise HTTPException(status_code=404, detail="File not found")
 
+
+# ============ ZIKR ENDPOINTS ============
+@api_router.get("/zikr/list")
+async def get_zikr_list():
+    """Get all zikr items from database"""
+    try:
+        response = supabase.table('zikr_items').select('*').order('category').execute()
+        return {"zikr_items": response.data}
+    except Exception as e:
+        logger.error(f"Error fetching zikr: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/zikr/record")
+async def record_zikr_progress(request: RecordZikrRequest):
+    """Record user's zikr progress"""
+    try:
+        today = datetime.now().strftime("%Y-%m-%d")
+        
+        # Check if record exists
+        existing = supabase.table('zikr_progress').select('*').eq('user_id', request.user_id).eq('zikr_id', request.zikr_id).eq('date', today).execute()
+        
+        if existing.data:
+            # Update
+            supabase.table('zikr_progress').update({
+                'count': request.count,
+                'completed': request.count >= 100  # simplified logic
+            }).eq('id', existing.data[0]['id']).execute()
+        else:
+            # Insert
+            supabase.table('zikr_progress').insert({
+                'id': str(uuid.uuid4()),
+                'user_id': request.user_id,
+                'zikr_id': request.zikr_id,
+                'count': request.count,
+                'completed': request.count >= 100,
+                'date': today
+            }).execute()
+        
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Error recording zikr: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============ QUIZ/TESTS ENDPOINTS ============
+@api_router.get("/quiz/{lesson_id}")
+async def get_lesson_quiz(lesson_id: str):
+    """Get quiz questions for a lesson"""
+    try:
+        response = supabase.table('quiz_questions').select('*').eq('lesson_id', lesson_id).execute()
+        return {"questions": response.data}
+    except Exception as e:
+        logger.error(f"Error fetching quiz: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/quiz/submit")
+async def submit_quiz(request: SubmitQuizRequest):
+    """Submit quiz answers and calculate score"""
+    try:
+        # Get questions
+        questions_response = supabase.table('quiz_questions').select('*').eq('lesson_id', request.lesson_id).execute()
+        questions = questions_response.data
+        
+        # Calculate score
+        score = 0
+        for idx, answer in enumerate(request.answers):
+            if idx < len(questions) and answer == questions[idx]['correct_answer']:
+                score += questions[idx].get('points', 5)
+        
+        total_questions = len(questions)
+        passed = score >= (total_questions * 3)  # 60% to pass
+        
+        # Save attempt
+        attempt_id = str(uuid.uuid4())
+        supabase.table('quiz_attempts').insert({
+            'id': attempt_id,
+            'user_id': request.user_id,
+            'lesson_id': request.lesson_id,
+            'score': score,
+            'total_questions': total_questions,
+            'passed': passed,
+            'attempted_at': datetime.now().isoformat()
+        }).execute()
+        
+        # Update user points if passed
+        if passed:
+            user_response = supabase.table('users').select('points').eq('id', request.user_id).execute()
+            if user_response.data:
+                current_points = user_response.data[0].get('points', 0)
+                supabase.table('users').update({'points': current_points + score}).eq('id', request.user_id).execute()
+        
+        return {
+            "success": True,
+            "score": score,
+            "total": total_questions,
+            "passed": passed,
+            "attempt_id": attempt_id
+        }
+    except Exception as e:
+        logger.error(f"Error submitting quiz: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============ LEADERBOARD ENDPOINT ============
+@api_router.get("/leaderboard")
+async def get_leaderboard(limit: int = 20):
+    """Get top users by points"""
+    try:
+        response = supabase.table('users').select('id, display_name, phone, points').order('points', desc=True).limit(limit).execute()
+        
+        leaderboard = []
+        for idx, user in enumerate(response.data):
+            leaderboard.append({
+                "rank": idx + 1,
+                "user_id": user['id'],
+                "name": user.get('display_name', user['phone']),
+                "points": user.get('points', 0)
+            })
+        
+        return {"leaderboard": leaderboard}
+    except Exception as e:
+        logger.error(f"Error fetching leaderboard: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============ ACHIEVEMENTS ENDPOINTS ============
+@api_router.get("/achievements")
+async def get_all_achievements():
+    """Get all available achievements"""
+    try:
+        response = supabase.table('achievements').select('*').execute()
+        return {"achievements": response.data}
+    except Exception as e:
+        logger.error(f"Error fetching achievements: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/achievements/user/{user_id}")
+async def get_user_achievements(user_id: str):
+    """Get user's unlocked achievements"""
+    try:
+        response = supabase.table('user_achievements').select('*').eq('user_id', user_id).execute()
+        return {"achievements": response.data}
+    except Exception as e:
+        logger.error(f"Error fetching user achievements: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============ PROFILE ENDPOINT ============
+@api_router.get("/profile/{user_id}")
+async def get_user_profile(user_id: str):
+    """Get complete user profile with stats"""
+    try:
+        # Get user data
+        user_response = supabase.table('users').select('*').eq('id', user_id).execute()
+        if not user_response.data:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user = user_response.data[0]
+        
+        # Get completed lessons count
+        progress_response = supabase.table('course_progress').select('*').eq('user_id', user_id).execute()
+        completed_lessons = sum([p.get('last_completed_order', 0) for p in progress_response.data])
+        
+        # Get achievements
+        achievements_response = supabase.table('user_achievements').select('*').eq('user_id', user_id).execute()
+        
+        # Get quiz stats
+        quiz_response = supabase.table('quiz_attempts').select('*').eq('user_id', user_id).execute()
+        quiz_stats = {
+            "total_attempts": len(quiz_response.data),
+            "passed": len([q for q in quiz_response.data if q.get('passed', False)])
+        }
+        
+        return {
+            "user": {
+                "id": user['id'],
+                "name": user.get('display_name', user['phone']),
+                "phone": user['phone'],
+                "role": user.get('role', 'student'),
+                "points": user.get('points', 0),
+            },
+            "stats": {
+                "completed_lessons": completed_lessons,
+                "achievements_count": len(achievements_response.data),
+                "quiz_passed": quiz_stats["passed"],
+                "quiz_total": quiz_stats["total_attempts"]
+            },
+            "achievements": achievements_response.data[:5]  # Latest 5
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching profile: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============ SEARCH ENDPOINT ============
+@api_router.post("/search")
+async def search_content(request: SearchRequest):
+    """Search across lessons, hadiths, stories"""
+    try:
+        results = []
+        query = request.query.lower()
+        
+        # Search lessons
+        if "lessons" in request.types:
+            lessons_response = supabase.table('video_lessons').select('*').execute()
+            for lesson in lessons_response.data:
+                title = lesson.get('title', '').lower()
+                desc = lesson.get('description', '').lower()
+                if query in title or query in desc:
+                    results.append({
+                        "type": "lesson",
+                        "id": lesson['id'],
+                        "title": lesson.get('title', ''),
+                        "snippet": lesson.get('description', '')[:100],
+                        "relevance": 1.0 if query in title else 0.7
+                    })
+        
+        # Search hadiths
+        if "hadiths" in request.types:
+            hadiths_response = supabase.table('hadiths').select('*').execute()
+            for hadith in hadiths_response.data:
+                russian = hadith.get('russian_text', '').lower()
+                arabic = hadith.get('arabic_text', '').lower()
+                if query in russian or query in arabic:
+                    results.append({
+                        "type": "hadith",
+                        "id": hadith['id'],
+                        "title": "Хадис",
+                        "snippet": hadith.get('russian_text', '')[:100],
+                        "relevance": 0.9
+                    })
+        
+        # Search stories
+        if "stories" in request.types:
+            stories_response = supabase.table('stories').select('*').execute()
+            for story in stories_response.data:
+                title = story.get('title', '').lower()
+                text = story.get('text', '').lower()
+                if query in title or query in text:
+                    results.append({
+                        "type": "story",
+                        "id": story['id'],
+                        "title": story.get('title', ''),
+                        "snippet": story.get('text', '')[:100],
+                        "relevance": 1.0 if query in title else 0.8
+                    })
+        
+        # Sort by relevance
+        results.sort(key=lambda x: x['relevance'], reverse=True)
+        
+        return {"results": results[:20]}  # Top 20
+    except Exception as e:
+        logger.error(f"Error searching: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============ ADMIN CONTENT MANAGEMENT ============
+@api_router.put("/admin/hadith/update")
+async def update_hadith(request: UpdateHadithRequest):
+    """Update hadith content"""
+    try:
+        update_data = {}
+        if request.arabic_text:
+            update_data['arabic_text'] = request.arabic_text
+        if request.russian_text:
+            update_data['russian_text'] = request.russian_text
+        if request.source:
+            update_data['source'] = request.source
+        if request.image_url:
+            update_data['image_url'] = request.image_url
+        
+        supabase.table('hadiths').update(update_data).eq('id', request.id).execute()
+        return {"success": True, "message": "Hadith updated"}
+    except Exception as e:
+        logger.error(f"Error updating hadith: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.put("/admin/story/update")
+async def update_story(request: UpdateStoryRequest):
+    """Update story content"""
+    try:
+        update_data = {}
+        if request.title:
+            update_data['title'] = request.title
+        if request.text:
+            update_data['text'] = request.text
+        if request.image_url:
+            update_data['image_url'] = request.image_url
+        
+        supabase.table('stories').update(update_data).eq('id', request.id).execute()
+        return {"success": True, "message": "Story updated"}
+    except Exception as e:
+        logger.error(f"Error updating story: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.delete("/admin/hadith/{hadith_id}")
+async def delete_hadith(hadith_id: str):
+    """Delete hadith"""
+    try:
+        supabase.table('hadiths').delete().eq('id', hadith_id).execute()
+        return {"success": True, "message": "Hadith deleted"}
+    except Exception as e:
+        logger.error(f"Error deleting hadith: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Include the router in the main app
 app.include_router(api_router)

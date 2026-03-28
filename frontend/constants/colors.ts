@@ -40,21 +40,44 @@ export const Colors = {
   white: '#FFFFFF',
 };
 
-// ========== DARK THEME (для будущего переключателя) ==========
+// ========== DARK THEME ==========
 export const ColorsDark = {
-  background: '#0F0F0F',           // Чистый тёмный, НЕ зелёный
+  // Backgrounds
+  background: '#0F0F0F',
   backgroundPage: '#1A1A1A',
   surface: '#242424',
   surfaceAccent: '#2A2A2A',
   
-  primary: '#D4A853',              // Чуть светлее для тёмного фона
-  green: '#3D9B72',                // Чуть ярче для тёмного фона
+  // Gold (Primary) - ярче для тёмного фона
+  primary: '#D4A853',
+  primaryLight: '#3D3420',
+  primaryText: '#D4A853',
+  primaryBorder: '#4A3C20',
   
+  // Green
+  green: '#3D9B72',
+  greenLight: '#4CAF7D',
+  greenBackground: '#1A2E25',
+  greenDark: '#2E7D5B',
+  
+  // Text
   textPrimary: '#F5F5F5',
   textSecondary: '#9CA3AF',
-  border: '#333333',
+  textTertiary: '#6B7280',
   
+  // UI Elements
+  border: '#333333',
+  error: '#EF4444',
+  success: '#3D9B72',
+  
+  // Tab Bar
   tabBar: '#1A1A1A',
+  tabBarActive: '#D4A853',
+  tabBarInactive: '#6B7280',
+  
+  // Other
+  overlay: 'rgba(0,0,0,0.6)',
+  white: '#FFFFFF',
 };
 
 // ========== SHADOWS (iOS-style) ==========

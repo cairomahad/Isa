@@ -1,6 +1,6 @@
 import {
-  View, Text, StyleSheet, TouchableOpacity, Animated, Vibration,
-  ScrollView, ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity, Animated,
+  ScrollView, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { useState, useRef, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,6 +9,9 @@ import * as Haptics from 'expo-haptics';
 import Svg, { Circle } from 'react-native-svg';
 import { Colors, Shadows } from '../../constants/colors';
 import { useAuthStore } from '../../store/authStore';
+import { REACT_APP_BACKEND_URL } from '@env';
+
+const API_URL = REACT_APP_BACKEND_URL;
 
 type DhikrItem = {
   id: string;
@@ -17,50 +20,8 @@ type DhikrItem = {
   translation: string;
   goal: number;
   reward_points: number;
+  category?: string;
 };
-
-const DAILY_DHIKR: DhikrItem[] = [
-  {
-    id: '1',
-    arabic: 'سُبْحَانَ اللهِ',
-    transliteration: 'Субханаллах',
-    translation: 'Пречист Аллах',
-    goal: 33,
-    reward_points: 5,
-  },
-  {
-    id: '2',
-    arabic: 'الْحَمْدُ لِلَّهِ',
-    transliteration: 'Альхамдулиллях',
-    translation: 'Хвала Аллаху',
-    goal: 33,
-    reward_points: 5,
-  },
-  {
-    id: '3',
-    arabic: 'اللهُ أَكْبَرُ',
-    transliteration: 'Аллаху Акбар',
-    translation: 'Аллах Велик',
-    goal: 34,
-    reward_points: 5,
-  },
-  {
-    id: '4',
-    arabic: 'لَا إِلَٰهَ إِلَّا اللَّهُ',
-    transliteration: 'Ля иляха илляллах',
-    translation: 'Нет божества, кроме Аллаха',
-    goal: 100,
-    reward_points: 10,
-  },
-  {
-    id: '5',
-    arabic: 'أَسْتَغْفِرُ اللهَ',
-    transliteration: 'Астагфируллах',
-    translation: 'Прошу прощения у Аллаха',
-    goal: 100,
-    reward_points: 10,
-  },
-];
 
 function CircularProgress({ progress, size = 200 }: { progress: number; size?: number }) {
   const strokeWidth = 12;
@@ -100,16 +61,45 @@ function CircularProgress({ progress, size = 200 }: { progress: number; size?: n
 
 export default function ZikrScreen() {
   const { user } = useAuthStore();
-  const [selectedDhikr, setSelectedDhikr] = useState<DhikrItem>(DAILY_DHIKR[0]);
+  const [dhikrList, setDhikrList] = useState<DhikrItem[]>([]);
+  const [selectedDhikr, setSelectedDhikr] = useState<DhikrItem | null>(null);
   const [count, setCount] = useState(0);
   const [totalPoints, setTotalPoints] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  const progress = (count / selectedDhikr.goal) * 100;
+  const progress = selectedDhikr ? (count / selectedDhikr.goal) * 100 : 0;
 
-  const handleTap = () => {
-    if (count >= selectedDhikr.goal) return;
+  // Fetch zikr from API
+  useEffect(() => {
+    fetchZikr();
+  }, []);
+
+  const fetchZikr = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/zikr/list`);
+      const data = await response.json();
+      if (data.zikr_items && data.zikr_items.length > 0) {
+        setDhikrList(data.zikr_items);
+        setSelectedDhikr(data.zikr_items[0]);
+      }
+    } catch (error) {
+      console.error('Error fetching zikr:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchZikr();
+    setRefreshing(false);
+  };
+
+  const handleTap = async () => {
+    if (!selectedDhikr || count >= selectedDhikr.goal) return;
 
     // Haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -117,21 +107,39 @@ export default function ZikrScreen() {
     // Animation
     Animated.sequence([
       Animated.timing(scaleAnim, {
-        toValue: 0.9,
-        duration: 100,
+        toValue: 0.85,
+        duration: 80,
         useNativeDriver: true,
       }),
       Animated.timing(scaleAnim, {
         toValue: 1,
-        duration: 100,
+        duration: 80,
         useNativeDriver: true,
       }),
     ]).start();
 
-    setCount(count + 1);
+    const newCount = count + 1;
+    setCount(newCount);
+
+    // Save to backend periodically
+    if (newCount % 10 === 0 || newCount === selectedDhikr.goal) {
+      try {
+        await fetch(`${API_URL}/api/zikr/record`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: user?.user_id,
+            zikr_id: selectedDhikr.id,
+            count: newCount,
+          }),
+        });
+      } catch (error) {
+        console.error('Error saving zikr progress:', error);
+      }
+    }
 
     // Check if goal reached
-    if (count + 1 === selectedDhikr.goal) {
+    if (newCount === selectedDhikr.goal) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTotalPoints(totalPoints + selectedDhikr.reward_points);
       
@@ -161,9 +169,36 @@ export default function ZikrScreen() {
     setCount(0);
   };
 
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Загрузка зикров...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!selectedDhikr) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Нет доступных зикров</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scroll} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+        }
+      >
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Зикр 📿</Text>
@@ -190,16 +225,22 @@ export default function ZikrScreen() {
             <Text style={styles.translationText}>{selectedDhikr.translation}</Text>
           </View>
 
-          {/* Tap Button */}
+          {/* Tap Button - УЛУЧШЕННАЯ КНОПКА */}
           <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
             <TouchableOpacity
               style={[styles.tapButton, count >= selectedDhikr.goal && styles.tapButtonCompleted]}
               onPress={handleTap}
               disabled={count >= selectedDhikr.goal}
+              activeOpacity={0.7}
             >
-              <Text style={styles.tapButtonText}>
-                {count >= selectedDhikr.goal ? '✅ Завершено!' : '☝️ Тап для подсчёта'}
-              </Text>
+              <View style={styles.tapButtonInner}>
+                <Text style={styles.tapButtonEmoji}>
+                  {count >= selectedDhikr.goal ? '✅' : '☝️'}
+                </Text>
+                <Text style={styles.tapButtonText}>
+                  {count >= selectedDhikr.goal ? 'Завершено!' : 'Нажмите здесь'}
+                </Text>
+              </View>
             </TouchableOpacity>
           </Animated.View>
 
@@ -215,7 +256,7 @@ export default function ZikrScreen() {
         {/* Dhikr List */}
         <View style={styles.listContainer}>
           <Text style={styles.listTitle}>Выберите зикр</Text>
-          {DAILY_DHIKR.map((dhikr) => (
+          {dhikrList.map((dhikr) => (
             <TouchableOpacity
               key={dhikr.id}
               style={[
@@ -245,6 +286,16 @@ export default function ZikrScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.backgroundPage },
   scroll: { flex: 1, paddingHorizontal: 20 },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    marginTop: 12,
+  },
   
   // Header
   header: {
@@ -310,24 +361,34 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   
-  // Tap Button
+  // Tap Button - УЛУЧШЕННЫЙ СТИЛЬ
   tapButton: {
     backgroundColor: Colors.primary,
-    paddingHorizontal: 50,
-    paddingVertical: 18,
-    borderRadius: 30,
-    minWidth: 260,
+    paddingHorizontal: 40,
+    paddingVertical: 24,
+    borderRadius: 60,
+    minWidth: 280,
+    minHeight: 120,
     alignItems: 'center',
-    ...Shadows.gold,
+    justifyContent: 'center',
+    ...Shadows.hero,
   },
   tapButtonCompleted: {
     backgroundColor: Colors.greenLight,
   },
+  tapButtonInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tapButtonEmoji: {
+    fontSize: 36,
+    marginBottom: 8,
+  },
   tapButtonText: {
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
   },
   
   // Reset Button
