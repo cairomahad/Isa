@@ -54,7 +54,7 @@ export default function ManageLessonsScreen() {
   
   const uploadFile = async (uri: string, type: 'video' | 'audio' | 'photo') => {
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
       const blob = await fetch(uri).then(r => r.blob());
       
       const formData = new FormData();
@@ -113,7 +113,7 @@ export default function ManageLessonsScreen() {
   
   const fetchLessons = async () => {
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
       const response = await fetch(`${backendUrl}/api/admin/lessons`);
       const data = await response.json();
       
@@ -157,7 +157,7 @@ export default function ManageLessonsScreen() {
     setSaving(true);
     
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
       
       if (editingLesson) {
         // Update existing lesson
@@ -226,7 +226,7 @@ export default function ManageLessonsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+              const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
               const response = await fetch(`${backendUrl}/api/admin/lessons/${lesson.id}`, {
                 method: 'DELETE',
               });

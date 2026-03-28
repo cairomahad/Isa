@@ -121,7 +121,7 @@ export default function PrayersScreen() {
       }
 
       // Call our Backend API
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://mobile-debug-deploy.preview.emergentagent.com';
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
       const citySlug = city.slug || 'moscow'; // Используем slug из cities
       const url = `${backendUrl}/api/prayer-times?city=${citySlug}`;
       

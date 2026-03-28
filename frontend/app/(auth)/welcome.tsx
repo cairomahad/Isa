@@ -30,7 +30,7 @@ export default function WelcomeScreen() {
     setLoading(true);
 
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://mobile-debug-deploy.preview.emergentagent.com';
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
       
       const response = await fetch(`${backendUrl}/api/auth/login`, {
         method: 'POST',

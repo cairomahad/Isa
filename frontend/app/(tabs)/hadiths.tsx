@@ -22,7 +22,7 @@ export default function HadithsScreen() {
 
   const fetchContent = useCallback(async () => {
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://mobile-debug-deploy.preview.emergentagent.com';
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
       
       const [hadithRes, storyRes, benefitRes] = await Promise.all([
         fetch(`${backendUrl}/api/hadith/daily`),

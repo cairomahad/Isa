@@ -37,7 +37,7 @@ export default function AdminReviewScreen() {
   
   const fetchItems = async () => {
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
       const endpoint = type === 'homework' ? '/api/homework/submissions' : '/api/admin/questions';
       
       const response = await fetch(`${backendUrl}${endpoint}?status=pending`);
@@ -71,7 +71,7 @@ export default function AdminReviewScreen() {
     setReviewing(true);
     
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
       const endpoint = type === 'homework' ? '/api/homework/review' : '/api/admin/answer-question';
       
       const body = type === 'homework'

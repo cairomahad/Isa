@@ -31,7 +31,7 @@ export default function AdminStudentsScreen() {
   
   const fetchStudents = async () => {
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
       const response = await fetch(`${backendUrl}/api/admin/students`);
       const data = await response.json();
       

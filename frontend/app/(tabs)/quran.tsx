@@ -50,7 +50,7 @@ export default function QuranScreen() {
   
   const fetchData = async () => {
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
       
       // Fetch surahs
       const surahsRes = await fetch(`${backendUrl}/api/quran/surahs`);
@@ -81,7 +81,7 @@ export default function QuranScreen() {
     setActing(true);
     
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
       const response = await fetch(`${backendUrl}/api/quran/start-program`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -109,7 +109,7 @@ export default function QuranScreen() {
     setActing(true);
     
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
       const response = await fetch(`${backendUrl}/api/quran/learn-ayah`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -138,7 +138,7 @@ export default function QuranScreen() {
     setActing(true);
     
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
       const response = await fetch(`${backendUrl}/api/quran/review-ayah`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

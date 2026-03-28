@@ -64,7 +64,7 @@ export default function HomeworkScreen() {
   
   const fetchHomework = async () => {
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
       const response = await fetch(`${backendUrl}/api/homework/${lessonId}`);
       
       if (!response.ok) {
@@ -187,7 +187,7 @@ export default function HomeworkScreen() {
     setSubmitting(true);
     
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
       
       let uploadedAudioUrl = null;
       let uploadedPhotoUrls: string[] = [];
