@@ -1,0 +1,55 @@
+{
+  "summary": "Backend API testing for Tazakkur Islamic app. 13/16 tests passed (81%). 3 critical issues found: wrong Supabase table names in server.py and missing UUID validation on /api/lessons.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/prayer-times?city=moscow",
+        "issue": "Returns 500 — code queries table 'public.prayer_cache' which doesn't exist. Supabase hint: 'Perhaps you meant the table public.leaderboard_archive' — table name in server.py is wrong.",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "GET /api/zikr/list",
+        "issue": "Returns 500 — code queries table 'public.zikr_items' which doesn't exist. Supabase hint: 'Perhaps you meant the table public.zikr_list' — fix table name from 'zikr_items' to 'zikr_list' in server.py.",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "GET /api/lessons?user_id=test",
+        "issue": "Returns 500 instead of 400 — 'test' is not a valid UUID. Backend passes raw user_id to Supabase without UUID validation causing 'invalid input syntax for type uuid' error. Should return 400 with helpful message.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_tazakkur_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Fix table name in server.py: change 'zikr_items' to 'zikr_list' (Supabase table is named zikr_list)",
+    "Fix table name in server.py: 'prayer_cache' doesn't exist — check if prayer times should be cached in DB or fetched fresh from Aladhan API only (remove cache table reference or create the table in Supabase)",
+    "Add UUID validation for /api/lessons user_id param — return 400 instead of letting Supabase throw 500"
+  ],
+  "critical_code_review_comments": [
+    "server.py line ~1708: table name 'zikr_items' should be 'zikr_list' per Supabase schema",
+    "server.py prayer-times endpoint: references 'prayer_cache' table that doesn't exist in Supabase",
+    "server.py /api/lessons: no UUID format validation on user_id query param — raw string passed to Supabase causes 500"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_tazakkur_api.py"
+  ],
+  "success_rate": {
+    "backend": "81% (13/16 tests passed)",
+    "frontend": "N/A - React Native app, browser testing not applicable"
+  },
+  "test_credentials": "test_credentials.md file not found at /app/memory/test_credentials.md. Auth tested with wrong credentials only (verified 401 returned correctly).",
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend mostly works. 3 fixes needed: (1) zikr_items -> zikr_list table name, (2) prayer_cache table missing — either create it in Supabase or remove caching logic, (3) UUID validation for /api/lessons. Auth login correctly returns 401 for invalid credentials. Hadith/story/benefit/quran/admin endpoints all returning 200 correctly.",
+  "rca_of_issue": "1. /api/zikr/list: server.py queries Supabase table 'zikr_items' but the actual table in Supabase is named 'zikr_list'. Simple table name fix required. 2. /api/prayer-times: server.py references 'prayer_cache' table for caching prayer times but this table doesn't exist in Supabase. Either create the table or remove the caching logic and always fetch from Aladhan API. 3. /api/lessons: user_id is used directly in Supabase UUID query without format validation. Add try/except or regex check to return 400 for non-UUID strings."
+}
