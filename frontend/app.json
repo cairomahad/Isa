@@ -42,6 +42,7 @@
         "INTERNET",
         "ACCESS_NETWORK_STATE"
       ],
+      "usesCleartextTraffic": true,
       "edgeToEdgeEnabled": true
     },
     "web": {

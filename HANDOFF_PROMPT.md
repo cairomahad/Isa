@@ -157,8 +157,8 @@ GET  /api/points/history/{user_id}  # История начислений
 ## 🔧 Технические детали
 
 ### URLs и Preview:
-- **Frontend Preview**: `https://mobile-debug-deploy.preview.emergentagent.com`
-- **Backend API**: `https://mobile-debug-deploy.preview.emergentagent.com/api`
+- **Frontend Preview**: `https://tazakkur-fix.preview.emergentagent.com`
+- **Backend API**: `https://tazakkur-fix.preview.emergentagent.com/api`
 - **Backend port**: 8001
 - **Frontend port**: 3000
 
@@ -187,7 +187,7 @@ DB_NAME=tazakkur_db
 
 **Frontend** (`/app/frontend/.env`):
 ```bash
-EXPO_PUBLIC_BACKEND_URL=https://mobile-debug-deploy.preview.emergentagent.com
+EXPO_PUBLIC_BACKEND_URL=https://tazakkur-fix.preview.emergentagent.com
 EXPO_PUBLIC_SUPABASE_URL=https://kmhhazpyalpjwspjxzry.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttaGhhenB5YWxwandzcGp4enJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4ODIyNzEsImV4cCI6MjA3ODQ1ODI3MX0.adj7b0hh3deVFN4JK6_s0Vjx_KtdLs9N9LaVkQQ__BA
 EXPO_PUBLIC_ADMIN_PASSWORD=admin2024
@@ -253,7 +253,7 @@ Database name: `tazakkur_db`
 
 ## 📱 Как подключиться к Preview:
 
-1. **Открыть в браузере**: `https://mobile-debug-deploy.preview.emergentagent.com`
+1. **Открыть в браузере**: `https://tazakkur-fix.preview.emergentagent.com`
 2. **Ввести имя** на экране приветствия
 3. **Нажать "Начать"**
 4. **Тестировать все функции**
