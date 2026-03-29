@@ -1,8 +1,8 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useColors } from '../../contexts/ThemeContext';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -12,8 +12,10 @@ function TabIcon({ name, color }: { name: IconName; color: string }) {
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const Colors = useColors();
   const bottomPad = Math.max(insets.bottom, Platform.OS === 'ios' ? 20 : 8);
   const tabHeight = (Platform.OS === 'ios' ? 60 : 58) + bottomPad;
+
   return (
     <Tabs
       screenOptions={{
@@ -33,93 +35,36 @@ export default function TabLayout() {
         },
         tabBarActiveTintColor: Colors.tabBarActive,
         tabBarInactiveTintColor: Colors.tabBarInactive,
-        tabBarLabelStyle: { 
-          fontSize: 11, 
-          fontWeight: '600',
-        },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       }}
     >
       <Tabs.Screen
         name="index"
-        options={{
-          title: 'Главная',
-          tabBarIcon: ({ color }) => <TabIcon name="home" color={color} />,
-          tabBarTestID: 'tab-home',
-        }}
+        options={{ title: 'Главная', tabBarIcon: ({ color }) => <TabIcon name="home" color={color} /> }}
       />
       <Tabs.Screen
         name="lessons"
-        options={{
-          title: 'Уроки',
-          tabBarIcon: ({ color }) => <TabIcon name="book" color={color} />,
-          tabBarTestID: 'tab-lessons',
-        }}
-      />
-      <Tabs.Screen
-        name="prayers"
-        options={{
-          title: 'Намазы',
-          tabBarIcon: ({ color }) => <TabIcon name="moon" color={color} />,
-          tabBarTestID: 'tab-prayers',
-        }}
+        options={{ title: 'Уроки', tabBarIcon: ({ color }) => <TabIcon name="book" color={color} /> }}
       />
       <Tabs.Screen
         name="zikr"
-        options={{
-          title: 'Зикр',
-          tabBarIcon: ({ color }) => <TabIcon name="radio-button-on" color={color} />,
-          tabBarTestID: 'tab-zikr',
-        }}
-      />
-      <Tabs.Screen
-        name="quran"
-        options={{
-          title: 'Коран',
-          tabBarIcon: ({ color }) => <TabIcon name="book" color={color} />,
-          tabBarTestID: 'tab-quran',
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Профиль',
-          tabBarIcon: ({ color }) => <TabIcon name="person" color={color} />,
-          tabBarTestID: 'tab-profile',
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Ещё',
-          tabBarIcon: ({ color }) => <TabIcon name="menu" color={color} />,
-          tabBarTestID: 'tab-settings',
-        }}
-      />
-      {/* Hidden tabs */}
-      <Tabs.Screen
-        name="hadiths"
-        options={{
-          href: null, // Hide from tab bar
-        }}
+        options={{ title: 'Зикр', tabBarIcon: ({ color }) => <TabIcon name="radio-button-on" color={color} /> }}
       />
       <Tabs.Screen
         name="rating"
-        options={{
-          href: null, // Hide from tab bar
-        }}
+        options={{ title: 'Рейтинг', tabBarIcon: ({ color }) => <TabIcon name="trophy" color={color} /> }}
       />
       <Tabs.Screen
-        name="qa"
-        options={{
-          href: null, // Hide from tab bar
-        }}
+        name="settings"
+        options={{ title: 'Ещё', tabBarIcon: ({ color }) => <TabIcon name="menu" color={color} /> }}
       />
-      <Tabs.Screen
-        name="missed-prayers"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
+      {/* Hidden tabs */}
+      <Tabs.Screen name="prayers" options={{ href: null }} />
+      <Tabs.Screen name="quran" options={{ href: null }} />
+      <Tabs.Screen name="profile" options={{ href: null }} />
+      <Tabs.Screen name="hadiths" options={{ href: null }} />
+      <Tabs.Screen name="qa" options={{ href: null }} />
+      <Tabs.Screen name="missed-prayers" options={{ href: null }} />
     </Tabs>
   );
 }

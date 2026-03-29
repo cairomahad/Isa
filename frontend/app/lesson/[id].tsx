@@ -1,292 +1,250 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Dimensions,
+  ActivityIndicator,
 } from 'react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
+import YoutubePlayer from 'react-native-youtube-iframe';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
-import { Colors, Shadows } from '../../constants/colors';
+import { useColors } from '../../contexts/ThemeContext';
+import { Shadows } from '../../constants/colors';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://tazakkur-production-c8c9.up.railway.app';
 
 type Lesson = {
   id: string;
   title: string;
   description: string;
-  video_url: string;
-  course_type: string;
-  order_num: number;
-  is_locked: boolean;
-  pdf_url?: string;
+  file_id?: string;
+  video_url?: string;
+  category: string;
+  pdf_file_id?: string;
 };
 
 type QuizTask = {
   id: string;
-  lesson_id: string;
+  video_id: string;
   question: string;
-  answer_a: string;
-  answer_b: string;
-  answer_c: string;
-  answer_d: string;
-  correct_answer: string;
+  options: string[];
+  correct_option: number;
+  score: number;
 };
 
 export default function LessonDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { session } = useAuthStore();
+  const { user } = useAuthStore();
+  const Colors = useColors();
+
   const [lesson, setLesson] = useState<Lesson | null>(null);
-  const [allLessons, setAllLessons] = useState<Lesson[]>([]);
   const [quizTasks, setQuizTasks] = useState<QuizTask[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Quiz state
   const [inQuiz, setInQuiz] = useState(false);
   const [currentQ, setCurrentQ] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [answered, setAnswered] = useState(false);
   const [score, setScore] = useState(0);
   const [quizDone, setQuizDone] = useState(false);
 
-  // Swipe gesture
-  const translateX = useSharedValue(0);
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchLesson = async () => {
       if (!id) return;
       try {
-        // Fetch current lesson
         const { data: l } = await supabase
           .from('video_lessons')
           .select('*')
           .eq('id', id)
           .single();
-        setLesson(l || DEMO_LESSON);
-
-        // Fetch all lessons in same category for swipe navigation
-        if (l) {
-          const { data: allInCategory } = await supabase
-            .from('video_lessons')
-            .select('*')
-            .eq('category', l.category)
-            .order('id');
-          setAllLessons(allInCategory || []);
-        }
+        setLesson(l || null);
 
         const { data: quiz } = await supabase
           .from('quiz_tasks')
           .select('*')
           .eq('video_id', id);
-        setQuizTasks(quiz || []);
-      } catch {
-        setLesson(DEMO_LESSON);
+
+        const letterToIdx: Record<string, number> = { a: 0, b: 1, c: 2, d: 3 };
+        const parsed = (quiz || []).map((q: any) => ({
+          id: String(q.id),
+          video_id: String(q.video_id),
+          question: q.question || '',
+          options: [q.option_a || '', q.option_b || '', q.option_c || '', q.option_d || ''],
+          correct_option: letterToIdx[String(q.correct_option || 'a').toLowerCase()] ?? 0,
+          score: 5,
+        }));
+        setQuizTasks(parsed);
+      } catch (e) {
+        console.warn('Lesson fetch error:', e);
       } finally {
         setLoading(false);
       }
     };
-    fetch();
+    fetchLesson();
   }, [id]);
 
-  // Swipe to next/previous lesson
-  const navigateToLesson = (direction: 'next' | 'prev') => {
-    if (!lesson || allLessons.length === 0) return;
-    
-    const currentIndex = allLessons.findIndex(l => l.id === lesson.id);
-    if (currentIndex === -1) return;
-
-    const targetIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
-    
-    if (targetIndex >= 0 && targetIndex < allLessons.length) {
-      const nextLesson = allLessons[targetIndex];
-      router.push(`/lesson/${nextLesson.id}`);
-    }
-  };
-
-  const swipeGesture = Gesture.Pan()
-    .onUpdate((event) => {
-      translateX.value = event.translationX;
-    })
-    .onEnd((event) => {
-      if (Math.abs(event.translationX) > SCREEN_WIDTH * 0.3) {
-        // Swipe threshold: 30% of screen width
-        if (event.translationX > 0) {
-          runOnJS(navigateToLesson)('prev');
-        } else {
-          runOnJS(navigateToLesson)('next');
-        }
-      }
-      translateX.value = withSpring(0);
-    });
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-  }));
-
-  const handleAnswer = (answer: string) => {
-    setSelectedAnswer(answer);
+  const handleAnswer = (index: number) => {
+    if (answered) return;
+    setSelectedIndex(index);
+    setAnswered(true);
     const task = quizTasks[currentQ];
-    if (task && answer === task.correct_answer) {
-      setScore((s) => s + 10);
-    }
+    const isCorrect = index === task.correct_option;
+    if (isCorrect) setScore(s => s + (task.score || 5));
+
+    const delay = isCorrect ? 800 : 1300;
     setTimeout(() => {
       if (currentQ < quizTasks.length - 1) {
-        setCurrentQ((q) => q + 1);
-        setSelectedAnswer(null);
+        setCurrentQ(q => q + 1);
+        setSelectedIndex(null);
+        setAnswered(false);
       } else {
         setQuizDone(true);
-        // Save quiz result
-        if (session?.user?.id && lesson?.id) {
-          supabase.from('quiz_results').insert([{
-            user_id: session.user.id,
-            lesson_id: lesson.id,
-            score: score + (answer === task?.correct_answer ? 10 : 0),
-          }]);
-          // Update user points
-          supabase.rpc('increment_points', {
-            user_app_id: session.user.id,
-            amount: score + (answer === task?.correct_answer ? 10 : 0),
-          }).then(() => {});
-        }
       }
-    }, 800);
+    }, delay);
   };
+
+  const handleFinishQuiz = async () => {
+    if (user?.id && id) {
+      try {
+        await fetch(`${API_URL}/api/quiz/submit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: user.id, video_id: id, score }),
+        });
+      } catch (e) {
+        console.warn('Quiz submit error:', e);
+      }
+    }
+    router.back();
+  };
+
+  const videoId = lesson?.file_id || lesson?.video_url || '';
+  const isValidYouTube = videoId.length === 11;
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color={Colors.gold} size="large" />
+        <ActivityIndicator color={Colors.primary} size="large" />
       </View>
     );
   }
 
-  if (inQuiz && !quizDone) {
-    const task = quizTasks[currentQ];
-    const ANSWERS: Array<keyof QuizTask> = ['answer_a', 'answer_b', 'answer_c', 'answer_d'];
-    const LABELS = ['А', 'Б', 'В', 'Г'];
+  // Quiz done screen
+  if (quizDone) {
+    const total = quizTasks.reduce((s, q) => s + (q.score || 5), 0);
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.center}>
+          <Text style={styles.doneEmoji}>{score >= total * 0.8 ? '🎉' : score >= total * 0.5 ? '👍' : '📖'}</Text>
+          <Text style={styles.doneTitle}>Тест завершён!</Text>
+          <Text style={styles.doneScore}>Ваш результат: {score} / {total}</Text>
+          <Text style={styles.donePlus}>+{score} очков</Text>
+          <TouchableOpacity style={styles.doneBtn} onPress={handleFinishQuiz} testID="finish-quiz-btn">
+            <Text style={styles.doneBtnText}>Завершить</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
+  // Quiz in progress
+  if (inQuiz && quizTasks.length > 0) {
+    const task = quizTasks[currentQ];
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.quizHeader}>
-          <TouchableOpacity onPress={() => setInQuiz(false)}>
+          <TouchableOpacity onPress={() => { setInQuiz(false); setCurrentQ(0); setScore(0); setSelectedIndex(null); setAnswered(false); }}>
             <Ionicons name="close" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.quizProgress}>
-            {currentQ + 1} / {quizTasks.length}
-          </Text>
-          <Text style={styles.quizScore}>⭐ {score}</Text>
+          <Text style={styles.quizProgress}>{currentQ + 1} / {quizTasks.length}</Text>
+          <Text style={styles.quizScore}>+{score}</Text>
         </View>
         <View style={styles.quizProgressBar}>
           <View style={[styles.quizProgressFill, { width: `${((currentQ + 1) / quizTasks.length) * 100}%` }]} />
         </View>
         <ScrollView style={styles.quizScroll} showsVerticalScrollIndicator={false}>
           <Text style={styles.quizQuestion}>{task?.question}</Text>
-          {ANSWERS.map((key, i) => {
-            const val = task?.[key] as string;
-            if (!val) return null;
-            const isSelected = selectedAnswer === LABELS[i];
-            const isCorrect = task?.correct_answer === LABELS[i];
-            let bg = Colors.cardDark;
-            if (selectedAnswer) {
-              if (isCorrect) bg = Colors.mediumGreen;
-              else if (isSelected) bg = Colors.error;
+          {(task?.options || []).map((opt, i) => {
+            const isSelected = selectedIndex === i;
+            const isCorrect = i === task.correct_option;
+            let bg = Colors.surface;
+            let borderColor = Colors.border;
+            if (answered) {
+              if (isCorrect) { bg = Colors.greenBackground; borderColor = Colors.green; }
+              else if (isSelected) { bg = 'rgba(239,68,68,0.1)'; borderColor = Colors.error; }
             }
             return (
               <TouchableOpacity
-                key={key}
-                style={[styles.answerBtn, { backgroundColor: bg }]}
-                onPress={() => !selectedAnswer && handleAnswer(LABELS[i])}
-                disabled={!!selectedAnswer}
-                testID={`answer-${LABELS[i]}`}
+                key={i}
+                style={[styles.answerBtn, { backgroundColor: bg, borderColor }]}
+                onPress={() => handleAnswer(i)}
+                disabled={answered}
+                testID={`answer-${i}`}
               >
-                <View style={styles.answerLabel}>
-                  <Text style={styles.answerLabelText}>{LABELS[i]}</Text>
+                <View style={[styles.answerLabel, answered && isCorrect && { backgroundColor: Colors.green }, answered && isSelected && !isCorrect && { backgroundColor: Colors.error }]}>
+                  <Text style={styles.answerLabelText}>{['А', 'Б', 'В', 'Г'][i]}</Text>
                 </View>
-                <Text style={styles.answerText}>{val}</Text>
+                <Text style={[styles.answerText, answered && isCorrect && { color: Colors.green, fontWeight: '700' }]}>{opt}</Text>
+                {answered && isCorrect && <Ionicons name="checkmark-circle" size={20} color={Colors.green} />}
+                {answered && isSelected && !isCorrect && <Ionicons name="close-circle" size={20} color={Colors.error} />}
               </TouchableOpacity>
             );
           })}
+          <View style={{ height: 40 }} />
         </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  if (quizDone) {
-    const total = quizTasks.length * 10;
-    const pct = total > 0 ? Math.round((score / total) * 100) : 0;
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.center}>
-          <Text style={styles.doneEmoji}>{pct >= 80 ? '🎉' : pct >= 50 ? '👍' : '📖'}</Text>
-          <Text style={styles.doneTitle}>Тест завершён!</Text>
-          <Text style={styles.doneScore}>{score} / {total} очков</Text>
-          <Text style={styles.donePct}>{pct}% правильных ответов</Text>
-          <TouchableOpacity
-            style={styles.doneBtn}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.doneBtnText}>Вернуться к урокам</Text>
-          </TouchableOpacity>
-        </View>
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* Header */}
       <View style={styles.lessonHeader}>
         <TouchableOpacity onPress={() => router.back()} testID="back-button">
           <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.lessonHeaderTitle} numberOfLines={1}>
-          {lesson?.title}
-        </Text>
+        <Text style={styles.lessonHeaderTitle} numberOfLines={1}>{lesson?.title}</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Video Placeholder */}
-        <View style={styles.videoPlaceholder} testID="video-placeholder">
-          <Ionicons name="videocam" size={48} color={Colors.gold} />
-          <Text style={styles.videoPlaceholderText}>Видеоурок</Text>
-          <Text style={styles.videoPlaceholderSub}>
-            {lesson?.video_url
-              ? 'Нажмите для просмотра'
-              : 'Видео скоро будет добавлено'}
-          </Text>
-          {lesson?.video_url && (
-            <View style={styles.playBtn}>
-              <Ionicons name="play" size={24} color={Colors.background} />
-            </View>
-          )}
-        </View>
+        {/* Video */}
+        {isValidYouTube ? (
+          <YoutubePlayer height={220} videoId={videoId} />
+        ) : (
+          <View style={styles.videoPlaceholder} testID="video-placeholder">
+            <Ionicons name="videocam" size={48} color={Colors.primary} />
+            <Text style={styles.videoPlaceholderText}>
+              {videoId ? 'Видео недоступно' : 'Видео скоро будет добавлено'}
+            </Text>
+          </View>
+        )}
 
-        {/* Content */}
         <View style={styles.content}>
           <Text style={styles.lessonTitle}>{lesson?.title}</Text>
           {lesson?.description && (
             <Text style={styles.lessonDesc}>{lesson.description}</Text>
           )}
 
-          {/* Actions */}
           <View style={styles.actions}>
             {quizTasks.length > 0 && (
               <TouchableOpacity
                 style={styles.quizBtn}
-                onPress={() => setInQuiz(true)}
+                onPress={() => { setInQuiz(true); setCurrentQ(0); setScore(0); setSelectedIndex(null); setAnswered(false); setQuizDone(false); }}
                 testID="start-quiz-button"
               >
-                <Ionicons name="help-circle" size={20} color={Colors.background} />
-                <Text style={styles.quizBtnText}>Пройти тест ({quizTasks.length} вопросов)</Text>
+                <Ionicons name="help-circle" size={20} color="#FFFFFF" />
+                <Text style={styles.quizBtnText}>Пройти тест ({quizTasks.length} вопр.)</Text>
               </TouchableOpacity>
             )}
-
-            {lesson?.pdf_url && (
+            {lesson?.pdf_file_id && (
               <TouchableOpacity style={styles.pdfBtn}>
-                <Ionicons name="document-text" size={20} color={Colors.gold} />
-                <Text style={styles.pdfBtnText}>Открыть PDF-материал</Text>
+                <Ionicons name="document-text" size={20} color={Colors.primary} />
+                <Text style={styles.pdfBtnText}>Открыть PDF</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -296,117 +254,63 @@ export default function LessonDetailScreen() {
   );
 }
 
-const DEMO_LESSON: Lesson = {
-  id: 'demo',
-  title: 'Введение в фикх',
-  description: 'Изучите основы исламского права (фикха). Этот урок охватывает базовые понятия, необходимые каждому мусульманину.',
-  video_url: '',
-  course_type: 'shafi',
-  order_num: 1,
-  is_locked: false,
-};
-
-const styles = StyleSheet.create({
+const makeStyles = (Colors: ReturnType<typeof useColors>) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   center: { flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center', padding: 24 },
   lessonHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.darkGreen,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
   lessonHeaderTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: Colors.textPrimary, textAlign: 'center' },
   scroll: { flex: 1 },
   videoPlaceholder: {
-    backgroundColor: Colors.cardLight,
-    height: 220,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.darkGreen,
-    gap: 8,
+    backgroundColor: Colors.surface,
+    height: 220, justifyContent: 'center', alignItems: 'center',
+    borderBottomWidth: 1, borderBottomColor: Colors.border, gap: 8,
   },
-  videoPlaceholderText: { fontSize: 18, fontWeight: 'bold', color: Colors.textPrimary },
-  videoPlaceholderSub: { fontSize: 13, color: Colors.textSecondary },
-  playBtn: {
-    marginTop: 8,
-    backgroundColor: Colors.gold,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  videoPlaceholderText: { fontSize: 16, color: Colors.textSecondary },
   content: { padding: 20 },
   lessonTitle: { fontSize: 22, fontWeight: 'bold', color: Colors.textPrimary, marginBottom: 12 },
   lessonDesc: { fontSize: 15, color: Colors.textSecondary, lineHeight: 24, marginBottom: 24 },
   actions: { gap: 12 },
   quizBtn: {
-    flexDirection: 'row',
-    backgroundColor: Colors.gold,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    gap: 10,
+    flexDirection: 'row', backgroundColor: Colors.primary,
+    borderRadius: 12, padding: 16, alignItems: 'center', gap: 10, ...Shadows.gold,
   },
-  quizBtnText: { fontSize: 16, fontWeight: 'bold', color: Colors.background },
+  quizBtnText: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
   pdfBtn: {
-    flexDirection: 'row',
-    backgroundColor: Colors.cardDark,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    gap: 10,
-    borderWidth: 1,
-    borderColor: Colors.goldBorder,
+    flexDirection: 'row', backgroundColor: Colors.surface,
+    borderRadius: 12, padding: 16, alignItems: 'center', gap: 10,
+    borderWidth: 1, borderColor: Colors.primaryBorder,
   },
-  pdfBtnText: { fontSize: 16, color: Colors.gold },
-  // Quiz styles
+  pdfBtnText: { fontSize: 16, color: Colors.primary },
+  // Quiz
   quizHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 12,
   },
   quizProgress: { fontSize: 16, fontWeight: '600', color: Colors.textPrimary },
-  quizScore: { fontSize: 16, color: Colors.gold, fontWeight: 'bold' },
-  quizProgressBar: { height: 4, backgroundColor: Colors.darkGreen, marginHorizontal: 20, borderRadius: 2 },
-  quizProgressFill: { height: 4, backgroundColor: Colors.gold, borderRadius: 2 },
+  quizScore: { fontSize: 16, color: Colors.primary, fontWeight: 'bold' },
+  quizProgressBar: { height: 4, backgroundColor: Colors.border, marginHorizontal: 20, borderRadius: 2 },
+  quizProgressFill: { height: 4, backgroundColor: Colors.primary, borderRadius: 2 },
   quizScroll: { flex: 1, paddingHorizontal: 20 },
   quizQuestion: { fontSize: 20, fontWeight: 'bold', color: Colors.textPrimary, marginVertical: 24, lineHeight: 30 },
   answerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.darkGreen,
-    gap: 12,
+    flexDirection: 'row', alignItems: 'center', borderRadius: 12,
+    padding: 16, marginBottom: 12, borderWidth: 2, gap: 12,
   },
   answerLabel: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.darkGreen,
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: Colors.border, justifyContent: 'center', alignItems: 'center',
   },
   answerLabelText: { fontSize: 14, fontWeight: 'bold', color: Colors.textPrimary },
   answerText: { flex: 1, fontSize: 15, color: Colors.textPrimary },
-  // Done styles
+  // Done
   doneEmoji: { fontSize: 64, marginBottom: 16 },
-  doneTitle: { fontSize: 24, fontWeight: 'bold', color: Colors.textPrimary, marginBottom: 8 },
-  doneScore: { fontSize: 32, fontWeight: 'bold', color: Colors.gold, marginBottom: 8 },
-  donePct: { fontSize: 16, color: Colors.textSecondary, marginBottom: 32 },
-  doneBtn: {
-    backgroundColor: Colors.gold,
-    borderRadius: 12,
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-  },
-  doneBtnText: { fontSize: 16, fontWeight: 'bold', color: Colors.background },
+  doneTitle: { fontSize: 24, fontWeight: 'bold', color: Colors.textPrimary, marginBottom: 12 },
+  doneScore: { fontSize: 22, fontWeight: '700', color: Colors.primary, marginBottom: 4 },
+  donePlus: { fontSize: 18, color: Colors.green, fontWeight: '600', marginBottom: 32 },
+  doneBtn: { backgroundColor: Colors.primary, borderRadius: 12, paddingHorizontal: 32, paddingVertical: 16, ...Shadows.gold },
+  doneBtnText: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
 });

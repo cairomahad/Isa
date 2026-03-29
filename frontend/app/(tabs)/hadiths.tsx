@@ -2,11 +2,13 @@ import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator,
   TouchableOpacity, RefreshControl,
 } from 'react-native';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
-import { Colors, Shadows } from '../../constants/colors';
+import { useFocusEffect } from '@react-navigation/native';
+import { useColors } from '../../contexts/ThemeContext';
+import { Shadows } from '../../constants/colors';
 
 type DailyContent = {
   hadith?: { arabic_text?: string; russian_text?: string; source?: string } | null;
@@ -19,6 +21,8 @@ export default function HadithsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'hadith' | 'story' | 'benefit'>('hadith');
+  const Colors = useColors();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
 
   const fetchContent = useCallback(async () => {
     try {
@@ -52,15 +56,17 @@ export default function HadithsScreen() {
     fetchContent();
   }, [fetchContent]);
 
+  useFocusEffect(useCallback(() => { fetchContent(); }, [fetchContent]));
+
   const onRefresh = () => {
     setRefreshing(true);
     fetchContent();
   };
 
   const TABS = [
-    { key: 'hadith', label: 'Хадис', icon: 'book' as const },
-    { key: 'story', label: 'История', icon: 'scroll' as const },
-    { key: 'benefit', label: 'Польза', icon: 'bulb' as const },
+    { key: 'hadith', label: 'Хадис', icon: 'book-outline' as const },
+    { key: 'story', label: 'История', icon: 'newspaper-outline' as const },
+    { key: 'benefit', label: 'Польза', icon: 'bulb-outline' as const },
   ];
 
   return (
@@ -88,7 +94,7 @@ export default function HadithsScreen() {
               testID={`tab-${tab.key}`}
             >
               <Ionicons
-                name={tab.icon}
+                name={tab.icon as any}
                 size={16}
                 color={activeTab === tab.key ? Colors.background : Colors.mediumGreen}
               />
@@ -182,84 +188,27 @@ const DEMO_BENEFIT = {
   text: '💡 Пусть ваш язык всегда будет влажным от поминания Аллаха. Произносите «Субхана-Ллах» часто — это легкие слова на языке, но тяжелые на весах.',
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (Colors: any) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   scroll: { flex: 1, paddingHorizontal: 16 },
   center: { paddingVertical: 60, alignItems: 'center' },
   header: { paddingVertical: 16, marginBottom: 8 },
   headerTitle: { fontSize: 22, fontWeight: 'bold', color: Colors.textPrimary },
   headerDate: { fontSize: 14, color: Colors.textSecondary, marginTop: 2 },
-  tabs: {
-    flexDirection: 'row',
-    backgroundColor: Colors.cardDark,
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: Colors.darkGreen,
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6,
-  },
+  tabs: { flexDirection: 'row', backgroundColor: Colors.cardDark, borderRadius: 12, padding: 4, marginBottom: 20, borderWidth: 1, borderColor: Colors.darkGreen },
+  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8, borderRadius: 8, gap: 6 },
   activeTab: { backgroundColor: Colors.gold },
   tabText: { fontSize: 13, color: Colors.mediumGreen, fontWeight: '500' },
   activeTabText: { color: Colors.background, fontWeight: 'bold' },
-  mainCard: {
-    backgroundColor: Colors.cardDark,
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: Colors.goldBorder,
-    ...Shadows.gold,
-  },
-  cardBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.gold,
-    alignSelf: 'flex-start',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    marginBottom: 16,
-    gap: 6,
-  },
+  mainCard: { backgroundColor: Colors.cardDark, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: Colors.goldBorder, ...Shadows.gold },
+  cardBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.gold, alignSelf: 'flex-start', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 4, marginBottom: 16, gap: 6 },
   storyBadge: { backgroundColor: Colors.mediumGreen },
   benefitBadge: { backgroundColor: Colors.lightGreen },
   cardBadgeText: { fontSize: 12, fontWeight: 'bold', color: Colors.background },
-  arabicText: {
-    fontSize: 24,
-    color: Colors.gold,
-    textAlign: 'right',
-    lineHeight: 40,
-    marginBottom: 12,
-    backgroundColor: 'transparent',
-  },
+  arabicText: { fontSize: 24, color: Colors.gold, textAlign: 'right', lineHeight: 40, marginBottom: 12, backgroundColor: 'transparent' },
   divider: { height: 1, backgroundColor: Colors.darkGreen, marginBottom: 16 },
-  storyTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.gold,
-    marginBottom: 12,
-    backgroundColor: 'transparent',
-  },
-  russianText: {
-    fontSize: 16,
-    color: Colors.textPrimary,
-    lineHeight: 26,
-    fontStyle: 'italic',
-    backgroundColor: 'transparent',
-  },
-  sourceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 16,
-    gap: 6,
-  },
+  storyTitle: { fontSize: 18, fontWeight: 'bold', color: Colors.gold, marginBottom: 12, backgroundColor: 'transparent' },
+  russianText: { fontSize: 16, color: Colors.textPrimary, lineHeight: 26, fontStyle: 'italic', backgroundColor: 'transparent' },
+  sourceRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16, gap: 6 },
   sourceText: { fontSize: 13, color: Colors.textSecondary },
 });

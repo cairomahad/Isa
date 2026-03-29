@@ -2,12 +2,12 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, TextInput, Alert, Modal,
 } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
-import { Colors, Shadows } from '../../constants/colors';
+import { useColors } from '../../contexts/ThemeContext';
+import { Shadows } from '../../constants/colors';
 
 type Lesson = {
   id: string;
@@ -21,102 +21,44 @@ type Lesson = {
 };
 
 const CATEGORIES = [
-  { value: 'fard', label: 'Шафиитский мазхаб', emoji: '📘' },
-  { value: 'hanafi', label: 'Ханафитский мазхаб', emoji: '📗' },
-  { value: 'arabic', label: 'Арабский язык', emoji: '🔤' },
+  { value: 'fard_shafi', label: 'Шафиитский мазхаб', emoji: '📘' },
+  { value: 'fard_hanafi', label: 'Ханафитский мазхаб', emoji: '📗' },
+  { value: 'arab', label: 'Арабский язык', emoji: '🔤' },
   { value: 'family', label: 'Семейные отношения', emoji: '🏠' },
 ];
 
 export default function ManageLessonsScreen() {
   const router = useRouter();
+  const Colors = useColors();
   const [loading, setLoading] = useState(true);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
   const [saving, setSaving] = useState(false);
-  
+
   // Form fields
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('fard');
-  const [videoFileId, setVideoFileId] = useState('');
+  const [category, setCategory] = useState('fard_shafi');
+  const [youtubeUrl, setYoutubeUrl] = useState('');
   const [audioFileId, setAudioFileId] = useState('');
   const [pdfFileId, setPdfFileId] = useState('');
-  
-  // File upload states
-  const [uploadingVideo, setUploadingVideo] = useState(false);
-  const [uploadingAudio, setUploadingAudio] = useState(false);
-  const [uploadingPdf, setUploadingPdf] = useState(false);
+
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
   
   useEffect(() => {
     fetchLessons();
   }, []);
   
-  const uploadFile = async (uri: string, type: 'video' | 'audio' | 'photo') => {
-    try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
-      const blob = await fetch(uri).then(r => r.blob());
-      
-      const formData = new FormData();
-      formData.append('file', blob as any);
-      
-      const response = await fetch(`${backendUrl}/api/upload/${type}`, {
-        method: 'POST',
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        throw new Error('Upload failed');
-      }
-      
-      const data = await response.json();
-      return data.file_url;
-    } catch (error) {
-      console.error(`${type} upload error:`, error);
-      throw error;
-    }
-  };
-  
-  const pickVideo = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-        allowsEditing: false,
-        quality: 1,
-      });
-      
-      if (!result.canceled && result.assets[0]) {
-        setUploadingVideo(true);
-        const url = await uploadFile(result.assets[0].uri, 'video');
-        setVideoFileId(url);
-        Alert.alert('Успешно!', 'Видео загружено');
-      }
-    } catch (error: any) {
-      Alert.alert('Ошибка', 'Не удалось загрузить видео');
-    } finally {
-      setUploadingVideo(false);
-    }
-  };
-  
-  const pickAudio = async () => {
-    try {
-      // Note: Expo ImagePicker doesn't support audio, so we'll use text input
-      Alert.alert('Аудио', 'Введите URL или file_id вручную');
-    } catch (error: any) {
-      Alert.alert('Ошибка', 'Не удалось загрузить аудио');
-    }
-  };
-  
   useEffect(() => {
     fetchLessons();
   }, []);
-  
+
   const fetchLessons = async () => {
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://tazakkur-production-c8c9.up.railway.app';
       const response = await fetch(`${backendUrl}/api/admin/lessons`);
       const data = await response.json();
-      
       setLessons(data.lessons || []);
     } catch (error) {
       console.error('Error fetching lessons:', error);
@@ -125,24 +67,24 @@ export default function ManageLessonsScreen() {
       setLoading(false);
     }
   };
-  
+
   const openAddModal = () => {
     setEditingLesson(null);
     setTitle('');
     setDescription('');
-    setCategory('fard');
-    setVideoFileId('');
+    setCategory('fard_shafi');
+    setYoutubeUrl('');
     setAudioFileId('');
     setPdfFileId('');
     setShowModal(true);
   };
-  
+
   const openEditModal = (lesson: Lesson) => {
     setEditingLesson(lesson);
     setTitle(lesson.title);
     setDescription(lesson.description);
     setCategory(lesson.category);
-    setVideoFileId(lesson.video_file_id || '');
+    setYoutubeUrl(lesson.video_file_id || '');
     setAudioFileId(lesson.audio_file_id || '');
     setPdfFileId(lesson.pdf_file_id || '');
     setShowModal(true);
@@ -153,61 +95,43 @@ export default function ManageLessonsScreen() {
       Alert.alert('Ошибка', 'Введите название урока');
       return;
     }
-    
+
     setSaving(true);
-    
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
-      
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://tazakkur-production-c8c9.up.railway.app';
+
       if (editingLesson) {
-        // Update existing lesson
         const response = await fetch(`${backendUrl}/api/admin/lessons/${editingLesson.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            title,
-            description,
-            category,
-            video_file_id: videoFileId || null,
+            title, description, category,
+            video_file_id: youtubeUrl || null,
             audio_file_id: audioFileId || null,
             pdf_file_id: pdfFileId || null,
           }),
         });
-        
         const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.detail || 'Failed to update');
-        }
-        
+        if (!response.ok) throw new Error(data.detail || 'Failed to update');
         Alert.alert('Успешно!', data.message);
       } else {
-        // Create new lesson
         const response = await fetch(`${backendUrl}/api/admin/lessons`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            title,
-            description,
-            category,
-            video_file_id: videoFileId || null,
+            title, description, category,
+            youtube_url: youtubeUrl || null,
             audio_file_id: audioFileId || null,
             pdf_file_id: pdfFileId || null,
           }),
         });
-        
         const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.detail || 'Failed to create');
-        }
-        
+        if (!response.ok) throw new Error(data.detail || 'Failed to create');
         Alert.alert('Успешно!', data.message);
       }
-      
+
       setShowModal(false);
       fetchLessons();
-      
     } catch (error: any) {
       Alert.alert('Ошибка', error.message || 'Не удалось сохранить урок');
     } finally {
@@ -216,37 +140,24 @@ export default function ManageLessonsScreen() {
   };
   
   const deleteLesson = (lesson: Lesson) => {
-    Alert.alert(
-      'Удалить урок?',
-      `Вы уверены, что хотите удалить урок "${lesson.title}"?`,
-      [
-        { text: 'Отмена', style: 'cancel' },
-        {
-          text: 'Удалить',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
-              const response = await fetch(`${backendUrl}/api/admin/lessons/${lesson.id}`, {
-                method: 'DELETE',
-              });
-              
-              const data = await response.json();
-              
-              if (!response.ok) {
-                throw new Error(data.detail || 'Failed to delete');
-              }
-              
-              Alert.alert('Успешно!', data.message);
-              fetchLessons();
-              
-            } catch (error: any) {
-              Alert.alert('Ошибка', error.message || 'Не удалось удалить урок');
-            }
-          },
+    Alert.alert('Удалить урок?', `"${lesson.title}"?`, [
+      { text: 'Отмена', style: 'cancel' },
+      {
+        text: 'Удалить', style: 'destructive',
+        onPress: async () => {
+          try {
+            const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://tazakkur-production-c8c9.up.railway.app';
+            const response = await fetch(`${backendUrl}/api/admin/lessons/${lesson.id}`, { method: 'DELETE' });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || 'Failed to delete');
+            Alert.alert('Успешно!', data.message);
+            fetchLessons();
+          } catch (error: any) {
+            Alert.alert('Ошибка', error.message || 'Не удалось удалить урок');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
   
   const getCategoryLabel = (value: string) => {
@@ -256,7 +167,7 @@ export default function ManageLessonsScreen() {
   
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View style={[styles.center, { backgroundColor: Colors.backgroundPage }]}>
         <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
@@ -367,7 +278,7 @@ export default function ManageLessonsScreen() {
                 placeholder="Например: Условия намаза"
                 placeholderTextColor={Colors.textSecondary}
               />
-              
+
               <Text style={styles.label}>Описание</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
@@ -378,16 +289,13 @@ export default function ManageLessonsScreen() {
                 multiline
                 numberOfLines={3}
               />
-              
+
               <Text style={styles.label}>Категория *</Text>
               <View style={styles.categoryGrid}>
                 {CATEGORIES.map((cat) => (
                   <TouchableOpacity
                     key={cat.value}
-                    style={[
-                      styles.categoryCard,
-                      category === cat.value && styles.categoryCardActive,
-                    ]}
+                    style={[styles.categoryCard, category === cat.value && styles.categoryCardActive]}
                     onPress={() => setCategory(cat.value)}
                   >
                     <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
@@ -395,47 +303,35 @@ export default function ManageLessonsScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-              
-              <Text style={styles.sectionTitle}>Файлы</Text>
-              
-              <Text style={styles.label}>Видео File ID или URL</Text>
-              <View style={styles.fileInputRow}>
-                <TextInput
-                  style={[styles.input, { flex: 1 }]}
-                  value={videoFileId}
-                  onChangeText={setVideoFileId}
-                  placeholder="Telegram file_id или URL"
-                  placeholderTextColor={Colors.textSecondary}
-                  editable={!uploadingVideo}
-                />
-                <TouchableOpacity
-                  style={[styles.uploadButton, uploadingVideo && styles.uploadButtonDisabled]}
-                  onPress={pickVideo}
-                  disabled={uploadingVideo}
-                >
-                  {uploadingVideo ? (
-                    <ActivityIndicator size="small" color={Colors.primary} />
-                  ) : (
-                    <Ionicons name="cloud-upload" size={20} color={Colors.primary} />
-                  )}
-                </TouchableOpacity>
-              </View>
-              
+
+              <Text style={styles.sectionTitle}>Видео</Text>
+
+              <Text style={styles.label}>YouTube URL</Text>
+              <TextInput
+                style={styles.input}
+                value={youtubeUrl}
+                onChangeText={setYoutubeUrl}
+                placeholder="https://youtu.be/VIDEO_ID или https://www.youtube.com/watch?v=VIDEO_ID"
+                placeholderTextColor={Colors.textSecondary}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
               <Text style={styles.label}>Аудио File ID или URL</Text>
               <TextInput
                 style={styles.input}
                 value={audioFileId}
                 onChangeText={setAudioFileId}
-                placeholder="Telegram file_id или URL"
+                placeholder="Опционально"
                 placeholderTextColor={Colors.textSecondary}
               />
-              
+
               <Text style={styles.label}>PDF File ID или URL</Text>
               <TextInput
                 style={styles.input}
                 value={pdfFileId}
                 onChangeText={setPdfFileId}
-                placeholder="Telegram file_id или URL"
+                placeholder="Опционально"
                 placeholderTextColor={Colors.textSecondary}
               />
               
@@ -462,261 +358,77 @@ export default function ManageLessonsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (Colors: any) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.backgroundPage },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 16,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: Colors.surface, justifyContent: 'center', alignItems: 'center',
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
   addButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.goldBackground,
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: Colors.goldBackground, justifyContent: 'center', alignItems: 'center',
   },
   scroll: { flex: 1, paddingHorizontal: 20 },
-  
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 80,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  emptyButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  emptyButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  
-  lessonCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 16,
-    ...Shadows.card,
-  },
-  lessonHeader: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  lessonInfo: {
-    flex: 1,
-  },
-  lessonTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  lessonCategory: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginBottom: 8,
-  },
-  lessonDescription: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    lineHeight: 20,
-  },
-  lessonMeta: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
+  emptyState: { alignItems: 'center', paddingVertical: 80 },
+  emptyText: { fontSize: 16, color: Colors.textSecondary, marginTop: 16, marginBottom: 24 },
+  emptyButton: { backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+  emptyButtonText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
+  lessonCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 16, marginTop: 16, ...Shadows.card },
+  lessonHeader: { flexDirection: 'row', marginBottom: 12 },
+  lessonInfo: { flex: 1 },
+  lessonTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
+  lessonCategory: { fontSize: 13, color: Colors.textSecondary, marginBottom: 8 },
+  lessonDescription: { fontSize: 14, color: Colors.textSecondary, lineHeight: 20 },
+  lessonMeta: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   metaTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.goldBackground,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    gap: 4,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.goldBackground, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, gap: 4,
   },
-  metaText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
+  metaText: { fontSize: 11, fontWeight: '600', color: Colors.primary },
   lessonActions: {
-    flexDirection: 'row',
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    paddingTop: 12,
+    flexDirection: 'row', gap: 8, borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 12,
   },
   actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.goldBackground,
-    paddingVertical: 10,
-    borderRadius: 10,
-    gap: 6,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.goldBackground, paddingVertical: 10, borderRadius: 10, gap: 6,
   },
-  actionButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  deleteButton: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-  },
-  deleteText: {
-    color: Colors.error,
-  },
-  
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: Colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
-  },
+  actionButtonText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
+  deleteButton: { backgroundColor: 'rgba(239, 68, 68, 0.1)' },
+  deleteText: { color: Colors.error },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: Colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%' },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    padding: 20, borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  modalScroll: {
-    padding: 20,
-  },
-  
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    marginTop: 16,
-    marginBottom: 8,
-  },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
+  modalScroll: { padding: 20 },
+  label: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary, marginTop: 16, marginBottom: 8 },
   input: {
-    backgroundColor: Colors.backgroundPage,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: Colors.textPrimary,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    backgroundColor: Colors.backgroundPage, borderRadius: 12,
+    paddingHorizontal: 16, paddingVertical: 12, fontSize: 16,
+    color: Colors.textPrimary, borderWidth: 1, borderColor: Colors.border,
   },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginTop: 24,
-    marginBottom: 8,
-  },
-  
-  categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
+  textArea: { minHeight: 80, textAlignVertical: 'top' },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary, marginTop: 24, marginBottom: 8 },
+  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   categoryCard: {
-    width: '48%',
-    backgroundColor: Colors.backgroundPage,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: Colors.border,
+    width: '48%', backgroundColor: Colors.backgroundPage,
+    borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 2, borderColor: Colors.border,
   },
-  categoryCardActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.goldBackground,
-  },
-  categoryEmoji: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  categoryLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    textAlign: 'center',
-  },
-  
+  categoryCardActive: { borderColor: Colors.primary, backgroundColor: Colors.goldBackground },
+  categoryEmoji: { fontSize: 32, marginBottom: 8 },
+  categoryLabel: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary, textAlign: 'center' },
   saveButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 24,
-    ...Shadows.gold,
+    backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 24, ...Shadows.gold,
   },
-  saveButtonDisabled: {
-    opacity: 0.5,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  
-  fileInputRow: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-  },
-  uploadButton: {
-    width: 48,
-    height: 48,
-    backgroundColor: Colors.goldBackground,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  uploadButtonDisabled: {
-    opacity: 0.5,
-  },
+  saveButtonDisabled: { opacity: 0.5 },
+  saveButtonText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
 });

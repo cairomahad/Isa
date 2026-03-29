@@ -2,11 +2,13 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Alert,
 } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Shadows } from '../../constants/colors';
+import { useFocusEffect } from '@react-navigation/native';
+import { useColors } from '../../contexts/ThemeContext';
+import { Shadows } from '../../constants/colors';
 import { useAuthStore } from '../../store/authStore';
 
 type Lesson = {
@@ -33,16 +35,20 @@ type CourseGroup = {
 };
 
 const COURSE_TYPES: Record<string, { label: string; emoji: string; description: string }> = {
-  shafi: { label: 'Шафиитский мазхаб', emoji: '📘', description: 'Обязательные знания для всех' },
+  fard_shafi: { label: 'Шафиитский мазхаб', emoji: '📘', description: 'Обязательные знания для всех' },
+  fard_hanafi: { label: 'Ханафитский мазхаб', emoji: '📗', description: 'Обязательные знания для всех' },
+  arab: { label: 'Арабский язык', emoji: '🔤', description: 'Открывается после основных знаний' },
+  family: { label: 'Семейные отношения', emoji: '🏠', description: 'Открывается после основных знаний' },
+  // Legacy aliases
+  fard: { label: 'Шафиитский мазхаб', emoji: '📘', description: 'Обязательные знания для всех' },
   hanafi: { label: 'Ханафитский мазхаб', emoji: '📗', description: 'Обязательные знания для всех' },
   arabic: { label: 'Арабский язык', emoji: '🔤', description: 'Открывается после основных знаний' },
-  family: { label: 'Семейные отношения', emoji: '🏠', description: 'Открывается после основных знаний' },
 };
 
-function ProgressBar({ value }: { value: number }) {
+function ProgressBar({ value, Colors }: { value: number; Colors: any }) {
   return (
-    <View style={styles.progressTrack}>
-      <View style={[styles.progressFill, { width: `${Math.min(value, 100)}%` }]} />
+    <View style={{ height: 8, backgroundColor: Colors.backgroundPage, borderRadius: 4, overflow: 'hidden', marginBottom: 8 }}>
+      <View style={{ height: 8, backgroundColor: Colors.primary, borderRadius: 4, width: `${Math.min(value, 100)}%` as any }} />
     </View>
   );
 }
@@ -50,6 +56,8 @@ function ProgressBar({ value }: { value: number }) {
 export default function LessonsScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
+  const Colors = useColors();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const [courseGroups, setCourseGroups] = useState<CourseGroup[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -57,11 +65,11 @@ export default function LessonsScreen() {
     fetchLessons();
   }, []);
 
+  useFocusEffect(useCallback(() => { fetchLessons(); }, []));
+
   const fetchLessons = async () => {
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
-      
-      // Fetch lessons from backend
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://tazakkur-production-c8c9.up.railway.app';
       const response = await fetch(`${backendUrl}/api/lessons?user_id=${user?.id || 'demo'}`);
       
       if (!response.ok) {
@@ -138,7 +146,7 @@ export default function LessonsScreen() {
             </View>
 
             {/* Progress Bar */}
-            <ProgressBar value={group.progress} />
+            <ProgressBar value={group.progress} Colors={Colors} />
             <Text style={styles.progressText}>{group.progress}% завершено</Text>
 
             {/* Lessons */}
@@ -205,188 +213,45 @@ export default function LessonsScreen() {
 // Demo Data
 const DEMO_COURSES: CourseGroup[] = [
   {
-    type: 'shafi',
+    type: 'fard_shafi',
     label: 'Шафиитский мазхаб',
     emoji: '📘',
-    completed: 3,
-    total: 12,
-    progress: 25,
+    completed: 3, total: 12, progress: 25,
     lessons: [
-      { id: '1', title: 'Введение в фикх', description: 'Основы исламского права', course_type: 'shafi', order_num: 1, is_locked: false, duration: '12:30' },
-      { id: '2', title: 'Основы тахарата', description: 'Очищение и омовение', course_type: 'shafi', order_num: 2, is_locked: false, duration: '15:20' },
-      { id: '3', title: 'Виды воды', description: 'Чистая и нечистая вода', course_type: 'shafi', order_num: 3, is_locked: false, duration: '10:45' },
-      { id: '4', title: 'Условия намаза', description: 'Обязательные условия молитвы', course_type: 'shafi', order_num: 4, is_locked: true, duration: '18:00' },
-      { id: '5', title: 'Столпы намаза', description: 'Основные элементы молитвы', course_type: 'shafi', order_num: 5, is_locked: true, duration: '20:15' },
-    ],
-  },
-  {
-    type: 'arabic',
-    label: 'Арабский язык',
-    emoji: '🔤',
-    completed: 0,
-    total: 8,
-    progress: 0,
-    lessons: [
-      { id: '6', title: 'Введение в арабский', description: 'Алфавит и произношение', course_type: 'arabic', order_num: 1, is_locked: true, duration: '25:00' },
-      { id: '7', title: 'Базовая грамматика', description: 'Основы арабской грамматики', course_type: 'arabic', order_num: 2, is_locked: true, duration: '30:00' },
+      { id: '1', title: 'Введение в фикх', description: '', course_type: 'fard_shafi', order_num: 1, is_locked: false, duration: '12:30' },
+      { id: '2', title: 'Основы тахарата', description: '', course_type: 'fard_shafi', order_num: 2, is_locked: false, duration: '15:20' },
     ],
   },
 ];
 
-const styles = StyleSheet.create({
+const makeStyles = (Colors: any) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.backgroundPage },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.backgroundPage },
   scroll: { flex: 1, paddingHorizontal: 20 },
-  
-  // Header
-  header: {
-    paddingTop: 24,
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 30,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    letterSpacing: -0.5,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-    fontWeight: '500',
-  },
-
-  // Info Card
-  infoCard: {
-    flexDirection: 'row',
-    backgroundColor: Colors.greenBackground,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 24,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.green,
-  },
-  infoContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  infoText: {
-    fontSize: 14,
-    color: Colors.textPrimary,
-    lineHeight: 20,
-  },
-
-  // Course Card
-  courseCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-    ...Shadows.card,
-  },
-  courseHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  courseEmoji: {
-    fontSize: 36,
-    marginRight: 14,
-  },
-  courseInfo: {
-    flex: 1,
-  },
-  courseTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  courseSubtitle: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    fontWeight: '500',
-  },
-
-  // Progress Bar
-  progressTrack: {
-    height: 8,
-    backgroundColor: Colors.backgroundPage,
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: 8,
-    backgroundColor: Colors.primary,
-    borderRadius: 4,
-  },
-  progressText: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-
-  // Lessons List
-  lessonsList: {
-    gap: 12,
-  },
-  lessonItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    backgroundColor: Colors.backgroundPage,
-    borderRadius: 12,
-  },
-  lessonIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  lessonIconLocked: {
-    backgroundColor: Colors.border,
-  },
-  lessonNumber: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  lessonContent: {
-    flex: 1,
-  },
-  lessonTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    marginBottom: 2,
-  },
-  lessonTitleLocked: {
-    color: Colors.textSecondary,
-  },
-  lessonDuration: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    fontWeight: '500',
-  },
-
-  // View All Button
-  viewAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    marginTop: 8,
-    gap: 6,
-  },
-  viewAllText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
+  header: { paddingTop: 24, marginBottom: 20 },
+  title: { fontSize: 30, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.5, marginBottom: 4 },
+  subtitle: { fontSize: 16, color: Colors.textSecondary, fontWeight: '500' },
+  infoCard: { flexDirection: 'row', backgroundColor: Colors.greenBackground, borderRadius: 16, padding: 16, marginBottom: 24, borderLeftWidth: 3, borderLeftColor: Colors.green },
+  infoContent: { flex: 1, marginLeft: 12 },
+  infoText: { fontSize: 14, color: Colors.textPrimary, lineHeight: 20 },
+  courseCard: { backgroundColor: Colors.surface, borderRadius: 20, padding: 20, marginBottom: 20, ...Shadows.card },
+  courseHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  courseEmoji: { fontSize: 36, marginRight: 14 },
+  courseInfo: { flex: 1 },
+  courseTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
+  courseSubtitle: { fontSize: 14, color: Colors.textSecondary, fontWeight: '500' },
+  progressTrack: { height: 8, backgroundColor: Colors.backgroundPage, borderRadius: 4, overflow: 'hidden', marginBottom: 8 },
+  progressFill: { height: 8, backgroundColor: Colors.primary, borderRadius: 4 },
+  progressText: { fontSize: 12, color: Colors.textSecondary, fontWeight: '600', marginBottom: 16 },
+  lessonsList: { gap: 12 },
+  lessonItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12, backgroundColor: Colors.backgroundPage, borderRadius: 12 },
+  lessonIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  lessonIconLocked: { backgroundColor: Colors.border },
+  lessonNumber: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  lessonContent: { flex: 1 },
+  lessonTitle: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, marginBottom: 2 },
+  lessonTitleLocked: { color: Colors.textSecondary },
+  lessonDuration: { fontSize: 12, color: Colors.textSecondary, fontWeight: '500' },
+  viewAllButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, marginTop: 8, gap: 6 },
+  viewAllText: { fontSize: 14, fontWeight: '600', color: Colors.primary },
 });

@@ -2,15 +2,17 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, RefreshControl,
 } from 'react-native';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
-import { Colors, Shadows } from '../../constants/colors';
+import { useColors } from '../../contexts/ThemeContext';
+import { Shadows } from '../../constants/colors';
 import { CITIES } from '../../constants/cities';
 
-const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
+const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://tazakkur-production-c8c9.up.railway.app';
 
 const PRAYER_LIST = [
   { key: 'fajr',    label: 'Фаджр',  icon: 'sunny-outline' as const },
@@ -26,16 +28,36 @@ type Hadith = { id: string; russian_text: string; text_ru?: string };
 function getNextPrayer(times: PrayerData) {
   const now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
+
   for (const p of PRAYER_LIST) {
-    const t = times[p.key as keyof PrayerData] as string;
-    const [h, m] = t.split(':').map(Number);
+    const raw = times[p.key as keyof PrayerData] as string;
+    const clean = raw.split(' ')[0];
+    const parts = clean.split(':');
+    const h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (isNaN(h) || isNaN(m)) continue;
     const pMin = h * 60 + m;
+
     if (pMin > nowMin) {
       const diff = pMin - nowMin;
-      return { ...p, time: t, timeLeft: diff >= 60 ? `${Math.floor(diff / 60)}ч ${diff % 60}м` : `${diff}м` };
+      const hours = Math.floor(diff / 60);
+      const mins = diff % 60;
+      const timeLeft = hours > 0
+        ? (mins > 0 ? `${hours}ч ${mins}м` : `${hours}ч`)
+        : `${mins}м`;
+      return { ...p, time: clean, timeLeft };
     }
   }
-  return { ...PRAYER_LIST[0], time: times.fajr, timeLeft: 'завтра' };
+  // After Isha — next Fajr
+  const fajrClean = times.fajr.split(' ')[0];
+  const [fh, fm] = fajrClean.split(':').map(Number);
+  const fajrMin = fh * 60 + fm;
+  const nowMin2 = now.getHours() * 60 + now.getMinutes();
+  const minutesUntilMidnight = 24 * 60 - nowMin2;
+  const totalDiff = minutesUntilMidnight + fajrMin;
+  const hours = Math.floor(totalDiff / 60);
+  const mins = totalDiff % 60;
+  return { ...PRAYER_LIST[0], time: fajrClean, timeLeft: `${hours}ч ${mins}м` };
 }
 
 function getWeekDayDate() {
@@ -45,6 +67,8 @@ function getWeekDayDate() {
 export default function HomeScreen() {
   const router = useRouter();
   const { user, selectedCity } = useAuthStore();
+  const Colors = useColors();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const [refreshing, setRefreshing] = useState(false);
   const [prayerTimes, setPrayerTimes] = useState<PrayerData | null>(null);
   const [nextPrayer, setNextPrayer] = useState<ReturnType<typeof getNextPrayer> | null>(null);
@@ -73,14 +97,13 @@ export default function HomeScreen() {
         const d = await lbRes.value.json();
         setLeaderboard(d.leaderboard || []);
       }
-    } catch (_) {
-      // ignore network errors
-    } finally {
-      setHadithLoading(false);
-    }
+    } catch (_) {}
+    finally { setHadithLoading(false); }
   }, [selectedCity]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useFocusEffect(useCallback(() => { fetchData(); }, [fetchData]));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -97,7 +120,7 @@ export default function HomeScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Header ── */}
+        {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={styles.greeting}>Ас-саляму алейкум,</Text>
@@ -114,7 +137,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* ── Prayer Card ── */}
+        {/* Prayer Card */}
         <View style={styles.prayerCard}>
           {nextPrayer ? (
             <>
@@ -134,7 +157,8 @@ export default function HomeScreen() {
                 <View style={styles.prayerList}>
                   {PRAYER_LIST.map(p => {
                     const isNext = p.key === nextPrayer.key;
-                    const t = prayerTimes[p.key as keyof PrayerData] as string;
+                    const raw = prayerTimes[p.key as keyof PrayerData] as string;
+                    const t = raw.split(' ')[0];
                     return (
                       <View key={p.key} style={[styles.prayerItem, isNext && styles.prayerItemActive]}>
                         <Ionicons name={p.icon} size={13} color={isNext ? Colors.primary : 'rgba(255,255,255,0.6)'} />
@@ -153,7 +177,7 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* ── Quick Actions ── */}
+        {/* Quick Actions */}
         <View style={styles.quickActions}>
           {[
             { icon: 'radio-button-on', label: 'Зикр',     route: '/(tabs)/zikr',    testID: 'qa-zikr' },
@@ -175,7 +199,7 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* ── Hadith of the Day ── */}
+        {/* Hadith of the Day */}
         {!hadithLoading && hadith && (
           <View style={styles.hadithCard}>
             <Text style={styles.hadithTitle}>ХАДИС ДНЯ</Text>
@@ -186,7 +210,7 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* ── Continue Learning ── */}
+        {/* Continue Learning */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Обучение</Text>
@@ -206,7 +230,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Leaderboard Preview ── */}
+        {/* Leaderboard Preview */}
         {leaderboard.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -233,49 +257,23 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (Colors: any) => StyleSheet.create({
   safe:   { flex: 1, backgroundColor: Colors.backgroundPage },
   scroll: { flex: 1 },
-
-  // Header
-  header: {
-    paddingTop: 20,
-    paddingHorizontal: 20,
-    marginBottom: 24,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
+  header: { paddingTop: 20, paddingHorizontal: 20, marginBottom: 24, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   headerLeft:  { flex: 1 },
   greeting:    { fontSize: 15, color: Colors.textSecondary, fontWeight: '500' },
   name:        { fontSize: 32, fontWeight: '800', color: Colors.textPrimary, marginTop: 2, letterSpacing: -0.5 },
   dateText:    { fontSize: 13, color: Colors.textTertiary, marginTop: 3, fontWeight: '400', textTransform: 'capitalize' },
   headerRight: { flexDirection: 'row', gap: 10, paddingTop: 4 },
-  iconBtn: {
-    width: 42, height: 42, borderRadius: 21,
-    backgroundColor: Colors.surface,
-    alignItems: 'center', justifyContent: 'center',
-    ...Shadows.card,
-  },
-
-  // Prayer Card
-  prayerCard: {
-    backgroundColor: Colors.primary,
-    borderRadius: 24, padding: 20,
-    marginHorizontal: 20, marginBottom: 24,
-    ...Shadows.hero,
-  },
+  iconBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.card },
+  prayerCard: { backgroundColor: Colors.primary, borderRadius: 24, padding: 20, marginHorizontal: 20, marginBottom: 24, ...Shadows.hero },
   prayerLoading:    { paddingVertical: 30, alignItems: 'center' },
   prayerNextRow:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
   prayerNextLabel:  { fontSize: 13, color: 'rgba(255,255,255,0.75)', fontWeight: '500', marginBottom: 4 },
   prayerNextName:   { fontSize: 28, fontWeight: '800', color: '#FFF', letterSpacing: -0.5, marginBottom: 2 },
   prayerNextTime:   { fontSize: 42, fontWeight: '300', color: '#FFF', letterSpacing: -2 },
-  prayerTimeBadge:  {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
-  },
+  prayerTimeBadge:  { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.22)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
   prayerTimeBadgeText: { fontSize: 12, fontWeight: '600', color: '#FFF' },
   prayerDivider:    { height: 1, backgroundColor: 'rgba(255,255,255,0.2)', marginBottom: 14 },
   prayerList:       { flexDirection: 'row', justifyContent: 'space-between' },
@@ -285,53 +283,25 @@ const styles = StyleSheet.create({
   prayerItemLabelActive: { color: '#FFF' },
   prayerItemTime:   { fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: '700' },
   prayerItemTimeActive:  { color: '#FFF' },
-
-  // Quick Actions
   quickActions: { flexDirection: 'row', paddingHorizontal: 20, gap: 10, marginBottom: 24 },
-  actionCard: {
-    flex: 1, backgroundColor: Colors.surface, borderRadius: 18,
-    paddingVertical: 18, alignItems: 'center', ...Shadows.card,
-  },
+  actionCard: { flex: 1, backgroundColor: Colors.surface, borderRadius: 18, paddingVertical: 18, alignItems: 'center', ...Shadows.card },
   actionIconWrap: { marginBottom: 10 },
   actionText: { fontSize: 12, fontWeight: '700', color: Colors.textPrimary, textAlign: 'center' },
-
-  // Hadith Card
-  hadithCard: {
-    backgroundColor: Colors.greenBackground,
-    borderRadius: 20, padding: 20,
-    marginHorizontal: 20, marginBottom: 24,
-    borderLeftWidth: 3, borderLeftColor: Colors.green,
-    ...Shadows.card,
-  },
-  hadithTitle: {
-    fontSize: 11, fontWeight: '800', color: Colors.green,
-    letterSpacing: 1.5, marginBottom: 10,
-  },
+  hadithCard: { backgroundColor: Colors.greenBackground, borderRadius: 20, padding: 20, marginHorizontal: 20, marginBottom: 24, borderLeftWidth: 3, borderLeftColor: Colors.green, ...Shadows.card },
+  hadithTitle: { fontSize: 11, fontWeight: '800', color: Colors.green, letterSpacing: 1.5, marginBottom: 10 },
   hadithDivider: { height: 1, backgroundColor: Colors.border, marginBottom: 12 },
   hadithScroll:  { maxHeight: 160 },
-  hadithText: {
-    fontSize: 15, color: Colors.textPrimary, lineHeight: 26,
-    fontStyle: 'italic', backgroundColor: 'transparent',
-  },
-
-  // Section
+  hadithText: { fontSize: 15, color: Colors.textPrimary, lineHeight: 26, fontStyle: 'italic', backgroundColor: 'transparent' },
   section:       { marginBottom: 24, paddingHorizontal: 20 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   sectionTitle:  { fontSize: 20, fontWeight: '700', color: Colors.textPrimary },
   sectionLink:   { fontSize: 13, color: Colors.primary, fontWeight: '600' },
-
-  // Course Card
-  courseCard: {
-    backgroundColor: Colors.surface, borderRadius: 18, padding: 18,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', ...Shadows.card,
-  },
+  courseCard: { backgroundColor: Colors.surface, borderRadius: 18, padding: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', ...Shadows.card },
   courseContent:  { flexDirection: 'row', alignItems: 'center', flex: 1 },
   courseEmoji:    { fontSize: 32, marginRight: 14 },
   courseInfo:     { flex: 1 },
   courseTitle:    { fontSize: 16, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
   courseProgress: { fontSize: 13, color: Colors.textSecondary, fontWeight: '500' },
-
-  // Leaderboard
   leaderboardCard:  { backgroundColor: Colors.surface, borderRadius: 18, padding: 16, ...Shadows.card },
   leaderboardItem:  { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, gap: 12 },
   leaderboardBorder:{ borderBottomWidth: 1, borderBottomColor: Colors.border },

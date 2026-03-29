@@ -1,75 +1,64 @@
-# Tazakkur — React Native / Expo APK Build Fix
+# Tazakkur App — PRD
 
-## Дата: 2026-03-28
-
-## Исходная задача
-Исправить проект Expo (SDK 54) на MacBook для успешной сборки APK через:
-`eas build --platform android --profile preview`
-
-- EAS аккаунт: ben777 (iaba30294@gmail.com)
-- EAS Project ID: b0a306ed-8647-4ec0-a973-99cb3bba0466
-- Бэкенд: http://192.168.1.8:8001 (MacBook в локальной WiFi)
-- Supabase: https://kmhhazpyalpjwspjxzry.supabase.co
+## Описание
+Исламское образовательное мобильное приложение (Expo SDK 54 / React Native).  
+Backend: FastAPI на Railway. БД: Supabase (PostgreSQL).
 
 ## Архитектура
-- React Native / Expo SDK 54
-- expo-router (файловая маршрутизация)
-- Supabase (auth + база данных)
-- FastAPI бэкенд на порту 8001
-- EAS Build (cloud build service)
+- Frontend: React Native / Expo SDK 54, expo-router, Zustand, TypeScript
+- Backend: FastAPI (server.py) → Railway
+- DB: Supabase (kmhhazpyalpjwspjxzry.supabase.co)
+- Backend URL: https://tazakkur-production-c8c9.up.railway.app
 
-## Исправленные проблемы
+## Что реализовано (Февраль 2026)
 
-### 1. package.json — неверные версии зависимостей
-- `expo-notifications`: canary 55 → `~0.28.0` (для expo 54)
-- `expo-image-picker`: `^55.0.14` → `~15.0.7` (для expo 54)
-- `react-native-worklets`: `0.5.1` → `0.8.1` (для react-native-reanimated 4.x)
-- Удалён `package-lock.json`, обновлён `yarn.lock`
+### Задача 1 — YouTube видеоуроки
+- manage-lessons.tsx: убрана загрузка файлов, добавлено поле YouTube URL
+- lesson/[id].tsx: YoutubePlayer вместо placeholder (react-native-youtube-iframe)
+- backend: extract_youtube_id() + обновлён CreateLessonRequest + POST /api/admin/lessons
 
-### 2. eas.json
-- `buildType: "aab"` → `"app-bundle"` (валидное значение)
-- Добавлен `NPM_CONFIG_LEGACY_PEER_DEPS: "true"` для preview и production
-- Добавлен `EXPO_PUBLIC_BACKEND_URL: "http://192.168.1.8:8001"` в env preview
+### Задача 2 — Квизы: отображение вариантов ответов
+- Реальная схема quiz_tasks: option_a/b/c/d + correct_option (letter a/b/c/d)
+- lesson/[id].tsx: rewrite квиза — правильное отображение, цветная обратная связь
+- Экран результатов: только итоговый счёт + очки
+- backend: /quiz/{lesson_id} возвращает options как массив, correct_option как int (0-based)
 
-### 3. app.json
-- `projectId: "tazakkur-islamic-app"` → `"b0a306ed-8647-4ec0-a973-99cb3bba0466"` (реальный UUID из EAS)
-- Удалён `versionCode: 1` (конфликт с `appVersionSource: "remote"`)
+### Задача 3 — Админ: добавление вопросов к тесту
+- admin/manage-quiz.tsx: новый экран с dropdown уроков, textarea для bulk-ввода
+- backend: POST /api/admin/quiz/batch (batch insert в quiz_tasks)
 
-### 4. @env импорты — главная причина "Bundle JavaScript" ошибки
-6 файлов использовали `import { REACT_APP_BACKEND_URL } from '@env'` без babel плагина:
-- `app/admin/content.tsx`
-- `app/admin/index.tsx`
-- `app/search.tsx`
-- `app/(tabs)/zikr.tsx`
-- `app/(tabs)/profile.tsx`
-- `app/(tabs)/rating.tsx`
+### Задача 4 — useFocusEffect на всех экранах
+- useFocusEffect добавлен: index.tsx, zikr.tsx, hadiths.tsx, rating.tsx, lessons.tsx
 
-Заменено на: `const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001'`
+### Задача 5 — Таймер намаза
+- getNextPrayer() исправлен: обрабатывает "(EEST)" суффиксы в времени
 
-### 5. services/notificationService.ts — неверный trigger API
-- `{ date: Date, repeats: true }` → `SchedulableTriggerInputTypes.CALENDAR`
-- `{ seconds: 5 }` → `SchedulableTriggerInputTypes.TIME_INTERVAL`
+### Задача 6 — Поиск: открытие результатов
+- search.tsx: навигация для всех типов результатов
 
-### 6. .gitignore
-- Добавлен `package-lock.json` в исключения
+### Задача 7 — Рейтинг: топ-10
+- rating.tsx: топ-10, backend фильтрует zikr_count > 0
 
-## Что нужно сделать на MacBook
+### Задача 8 — Тёмная тема
+- DarkColors полный набор свойств, useColors() хук
+- Обновлены все ключевые экраны на makeStyles(Colors) паттерн
 
-```bash
-# В папке frontend:
-git pull                                      # Получить исправления
-rm -f package-lock.json                       # Удалить старый lock
-yarn install                                  # Установить зависимости
-git add yarn.lock
-git commit -m "fix: all build issues resolved"
-eas build --platform android --profile preview
-```
+### Задача 9 — Зикр UX
+- Убран текст "Нажмите здесь", минималистичная кнопка
+- Volume buttons через react-native-volume-manager
 
-## Статус
-- [ ] Все исправления применены в коде
-- [ ] yarn.lock обновлён
-- [ ] Пользователь должен запустить сборку на MacBook
+### Задача 10 — Навигация
+- 5 вкладок: Главная | Уроки | Зикр | Рейтинг | Ещё
+- Намазы доступны через settings.tsx
 
-## Backlog
-- Настроить CI/CD pipeline через GitHub Actions
-- Добавить production бэкенд URL (не локальный IP)
+### Задача 11 — Категории курсов
+- fard_shafi, fard_hanafi, arab, family
+
+## Зависимости добавлены
+- react-native-youtube-iframe: ^2.4.1
+- react-native-volume-manager: ^2.0.8
+
+## Следующие задачи (P0)
+1. Задеплоить backend на Railway (server.py изменён)
+2. EAS Build для тестирования react-native-volume-manager
+3. Обновить profile.tsx, quran.tsx, prayers.tsx на useColors()

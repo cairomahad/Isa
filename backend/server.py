@@ -506,11 +506,30 @@ async def login(request: LoginRequest):
 
 # ========== LESSONS API ==========
 COURSE_CONFIG = {
+    'fard_shafi': {'label': 'Шафиитский мазхаб', 'emoji': '📘', 'description': 'Обязательные знания'},
+    'fard_hanafi': {'label': 'Ханафитский мазхаб', 'emoji': '📗', 'description': 'Обязательные знания'},
+    'arab': {'label': 'Арабский язык', 'emoji': '🔤', 'description': 'Открывается после основных знаний'},
+    'family': {'label': 'Семейные отношения', 'emoji': '🏠', 'description': 'Открывается после основных знаний'},
+    # Legacy aliases
     'fard': {'label': 'Шафиитский мазхаб', 'emoji': '📘', 'description': 'Обязательные знания'},
     'hanafi': {'label': 'Ханафитский мазхаб', 'emoji': '📗', 'description': 'Обязательные знания'},
     'arabic': {'label': 'Арабский язык', 'emoji': '🔤', 'description': 'Открывается после основных знаний'},
-    'family': {'label': 'Семейные отношения', 'emoji': '🏠', 'description': 'Открывается после основных знаний'},
 }
+
+def extract_youtube_id(url: str) -> Optional[str]:
+    """Extract YouTube video ID from various URL formats"""
+    import re
+    patterns = [
+        r'youtu\.be/([A-Za-z0-9_-]{11})',
+        r'youtube\.com/watch\?v=([A-Za-z0-9_-]{11})',
+        r'youtube\.com/embed/([A-Za-z0-9_-]{11})',
+        r'^([A-Za-z0-9_-]{11})$',  # Raw video ID
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+    return None
 
 @api_router.get("/lessons", response_model=CoursesResponse)
 async def get_lessons(user_id: str = Query(..., description="User ID")):
@@ -1432,7 +1451,8 @@ async def get_reviews_today(user_id: str = Query(...)):
 class CreateLessonRequest(BaseModel):
     title: str
     description: Optional[str] = ""
-    category: str  # fard, hanafi, arabic, family
+    category: str
+    youtube_url: Optional[str] = None
     video_file_id: Optional[str] = None
     audio_file_id: Optional[str] = None
     pdf_file_id: Optional[str] = None
@@ -1476,31 +1496,39 @@ async def get_all_lessons_admin():
 
 @api_router.post("/admin/lessons")
 async def create_lesson(request: CreateLessonRequest):
-    """Create a new lesson"""
+    """Create a new lesson. Accepts youtube_url and extracts videoId."""
     try:
+        # Extract YouTube video ID if youtube_url is provided
+        file_id = request.video_file_id
+        if request.youtube_url:
+            extracted = extract_youtube_id(request.youtube_url)
+            if not extracted:
+                raise HTTPException(status_code=400, detail="Неверный YouTube URL. Поддерживаются youtu.be/... и youtube.com/watch?v=...")
+            file_id = extracted
+
         lesson_data = {
             'title': request.title,
             'description': request.description,
             'category': request.category,
-            'file_id': request.video_file_id,
+            'file_id': file_id,
             'audio_file_id': request.audio_file_id,
             'pdf_file_id': request.pdf_file_id,
-            'file_type': 'video' if request.video_file_id else 'text',
+            'file_type': 'video' if file_id else 'text',
             'file_name': request.title,
             'created_at': datetime.now().isoformat(),
         }
-        
+
         response = supabase.table('video_lessons').insert(lesson_data).execute()
-        
+
         if not response.data or len(response.data) == 0:
             raise HTTPException(status_code=500, detail="Failed to create lesson")
-        
+
         return {
             "success": True,
             "message": "Урок успешно создан",
             "lesson_id": str(response.data[0].get('id', '')),
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1565,6 +1593,76 @@ async def delete_lesson(lesson_id: str):
         raise
     except Exception as e:
         logger.error(f"Error deleting lesson: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============ ADMIN QUIZ MANAGEMENT ============
+class QuizBatchQuestion(BaseModel):
+    question: str
+    options: List[str]
+    correct_option: int
+    score: int = 5
+
+
+class QuizBatchRequest(BaseModel):
+    video_id: str
+    questions: List[QuizBatchQuestion]
+
+
+@api_router.post("/admin/quiz/batch")
+async def create_quiz_batch(request: QuizBatchRequest):
+    """Batch insert quiz questions for a lesson (uses option_a/b/c/d schema)"""
+    try:
+        idx_to_letter = {0: 'a', 1: 'b', 2: 'c', 3: 'd'}
+        rows = []
+        for q in request.questions:
+            opts = q.options
+            rows.append({
+                'video_id': request.video_id,
+                'question': q.question,
+                'option_a': opts[0] if len(opts) > 0 else '',
+                'option_b': opts[1] if len(opts) > 1 else '',
+                'option_c': opts[2] if len(opts) > 2 else '',
+                'option_d': opts[3] if len(opts) > 3 else '',
+                'correct_option': idx_to_letter.get(q.correct_option, 'a'),
+            })
+        if not rows:
+            raise HTTPException(status_code=400, detail="No questions provided")
+        response = supabase.table('quiz_tasks').insert(rows).execute()
+        return {"success": True, "inserted": len(response.data or []), "message": f"Добавлено {len(rows)} вопросов"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating quiz batch: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/admin/lessons/{lesson_id}/quiz")
+async def get_quiz_for_lesson(lesson_id: str):
+    """Get quiz questions for a specific lesson (admin view)"""
+    try:
+        response = supabase.table('quiz_tasks').select('*').eq('video_id', lesson_id).execute()
+        return {"questions": response.data or [], "count": len(response.data or [])}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/admin/migrate/categories")
+async def migrate_categories():
+    """One-time migration: rename old category values to new ones"""
+    try:
+        migrations = [
+            ('fard', 'fard_shafi'),
+            ('hanafi', 'fard_hanafi'),
+            ('arabic', 'arab'),
+        ]
+        results = {}
+        for old, new in migrations:
+            resp = supabase.table('video_lessons').update({'category': new}).eq('category', old).execute()
+            results[f"{old}->{new}"] = len(resp.data or [])
+        return {"success": True, "migrated": results}
+    except Exception as e:
+        logger.error(f"Migration error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1758,57 +1856,67 @@ async def record_zikr_progress(request: RecordZikrRequest):
 # ============ QUIZ/TESTS ENDPOINTS ============
 @api_router.get("/quiz/{lesson_id}")
 async def get_lesson_quiz(lesson_id: str):
-    """Get quiz questions for a lesson"""
+    """Get quiz questions for a lesson from quiz_tasks table"""
     try:
-        response = supabase.table('quiz_questions').select('*').eq('lesson_id', lesson_id).execute()
-        return {"questions": response.data}
+        response = supabase.table('quiz_tasks').select('*').eq('video_id', lesson_id).execute()
+        questions = []
+        letter_to_idx = {'a': 0, 'b': 1, 'c': 2, 'd': 3}
+        for q in (response.data or []):
+            opts = [
+                q.get('option_a', '') or '',
+                q.get('option_b', '') or '',
+                q.get('option_c', '') or '',
+                q.get('option_d', '') or '',
+            ]
+            correct_letter = str(q.get('correct_option', 'a')).lower()
+            correct_idx = letter_to_idx.get(correct_letter, 0)
+            questions.append({
+                'id': str(q.get('id', '')),
+                'video_id': str(q.get('video_id', '')),
+                'question': q.get('question', ''),
+                'options': opts,
+                'correct_option': correct_idx,
+                'score': 5,
+            })
+        return {"questions": questions}
     except Exception as e:
         logger.error(f"Error fetching quiz: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+class QuizSubmitRequest(BaseModel):
+    user_id: str
+    video_id: str
+    score: int
+
+
 @api_router.post("/quiz/submit")
-async def submit_quiz(request: SubmitQuizRequest):
-    """Submit quiz answers and calculate score"""
+async def submit_quiz_result(request: QuizSubmitRequest):
+    """Submit quiz result, update zikr_count"""
     try:
-        # Get questions
-        questions_response = supabase.table('quiz_questions').select('*').eq('lesson_id', request.lesson_id).execute()
-        questions = questions_response.data
-        
-        # Calculate score
-        score = 0
-        for idx, answer in enumerate(request.answers):
-            if idx < len(questions) and answer == questions[idx]['correct_answer']:
-                score += questions[idx].get('points', 5)
-        
-        total_questions = len(questions)
-        passed = score >= (total_questions * 3)  # 60% to pass
-        
-        # Save attempt
-        attempt_id = str(uuid.uuid4())
-        supabase.table('quiz_attempts').insert({
-            'id': attempt_id,
-            'user_id': request.user_id,
-            'lesson_id': request.lesson_id,
-            'score': score,
-            'total_questions': total_questions,
-            'passed': passed,
-            'attempted_at': datetime.now().isoformat()
-        }).execute()
-        
-        # Update user points if passed
-        if passed:
-            user_response = supabase.table('users').select('points').eq('id', request.user_id).execute()
-            if user_response.data:
-                current_points = user_response.data[0].get('points', 0)
-                supabase.table('users').update({'points': current_points + score}).eq('id', request.user_id).execute()
-        
-        return {
-            "success": True,
-            "score": score,
-            "total": total_questions,
-            "passed": passed,
-            "attempt_id": attempt_id
+        # Look up telegram_id from user UUID
+        user_resp = supabase.table('users').select('id, telegram_id, zikr_count').eq('id', request.user_id).execute()
+        telegram_id = None
+        if user_resp.data:
+            telegram_id = user_resp.data[0].get('telegram_id')
+            current_zikr = user_resp.data[0].get('zikr_count') or 0
+            # Update zikr_count
+            supabase.table('users').update({'zikr_count': current_zikr + request.score}).eq('id', request.user_id).execute()
+
+        # Insert into quiz_results
+        insert_data = {
+            'video_id': request.video_id,
+            'score': request.score,
+            'created_at': datetime.now().isoformat(),
         }
+        if telegram_id:
+            insert_data['telegram_id'] = telegram_id
+        try:
+            supabase.table('quiz_results').insert(insert_data).execute()
+        except Exception as qe:
+            logger.warning(f"Quiz result insert warning: {qe}")
+
+        return {"success": True, "message": f"+{request.score} очков начислено"}
     except Exception as e:
         logger.error(f"Error submitting quiz: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1816,11 +1924,11 @@ async def submit_quiz(request: SubmitQuizRequest):
 # ============ LEADERBOARD ENDPOINT ============
 @api_router.get("/leaderboard")
 async def get_leaderboard(limit: int = 20):
-    """Get top users by zikr_count (leaderboard)"""
+    """Get top users by zikr_count (leaderboard), only active users"""
     try:
         response = supabase.table('users').select(
             'id, display_name, first_name, username, zikr_count'
-        ).order('zikr_count', desc=True).limit(limit).execute()
+        ).gt('zikr_count', 0).order('zikr_count', desc=True).limit(limit).execute()
 
         leaderboard = []
         rank = 1

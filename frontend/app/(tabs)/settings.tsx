@@ -2,21 +2,23 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Switch, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
-import { Colors } from '../../constants/colors';
-import { CITIES } from '../../constants/cities';
+import { useColors } from '../../contexts/ThemeContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { CITIES } from '../../constants/cities';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { user, setUser, session, selectedCity, setCity } = useAuthStore();
   const { toggleTheme, isDark } = useTheme();
+  const Colors = useColors();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const [name, setName] = useState(user?.display_name || '');
   const [editingName, setEditingName] = useState(false);
   const [savingName, setSavingName] = useState(false);
@@ -182,6 +184,12 @@ export default function SettingsScreen() {
             />
             <View style={styles.rowDivider} />
             <Row
+              icon="moon"
+              label="Расписание намазов"
+              onPress={() => router.push('/(tabs)/prayers')}
+            />
+            <View style={styles.rowDivider} />
+            <Row
               icon="calendar"
               label="Возмещение намазов"
               onPress={() => router.push('/missed-prayers')}
@@ -191,6 +199,12 @@ export default function SettingsScreen() {
               icon="trophy"
               label="Рейтинг"
               onPress={() => router.push('/rating')}
+            />
+            <View style={styles.rowDivider} />
+            <Row
+              icon="book"
+              label="Коран / Хифз"
+              onPress={() => router.push('/(tabs)/quran')}
             />
           </View>
 
@@ -273,95 +287,35 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (Colors: any) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   flex: { flex: 1 },
   scroll: { flex: 1, paddingHorizontal: 16 },
   title: { fontSize: 22, fontWeight: 'bold', color: Colors.textPrimary, paddingTop: 16, marginBottom: 20 },
-  profileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.cardDark,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: Colors.darkGreen,
-    gap: 16,
-  },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.mediumGreen,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: Colors.gold,
-  },
-  avatarText: { fontSize: 20, fontWeight: 'bold', color: Colors.textPrimary },
+  profileCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.cardDark, borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: Colors.darkGreen, gap: 16 },
+  avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: Colors.mediumGreen, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: Colors.gold },
+  avatarText: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF' },
   profileInfo: { flex: 1 },
   profileName: { fontSize: 18, fontWeight: 'bold', color: Colors.textPrimary },
   editLink: { fontSize: 13, color: Colors.gold, marginTop: 4 },
   nameEdit: { gap: 8 },
-  nameInput: {
-    backgroundColor: Colors.inputBg,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    fontSize: 16,
-    color: Colors.textPrimary,
-    borderWidth: 1,
-    borderColor: Colors.darkGreen,
-  },
-  saveBtn: {
-    backgroundColor: Colors.gold,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    alignItems: 'center',
-  },
+  nameInput: { backgroundColor: Colors.inputBg, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, fontSize: 16, color: Colors.textPrimary, borderWidth: 1, borderColor: Colors.darkGreen },
+  saveBtn: { backgroundColor: Colors.gold, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 6, alignItems: 'center' },
   saveBtnText: { fontSize: 14, fontWeight: 'bold', color: Colors.background },
-  statsRow: {
-    flexDirection: 'row',
-    backgroundColor: Colors.cardLight,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: Colors.goldBorder,
-  },
+  statsRow: { flexDirection: 'row', backgroundColor: Colors.cardLight, borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: Colors.goldBorder },
   statItem: { flex: 1, alignItems: 'center' },
   statValue: { fontSize: 16, fontWeight: 'bold', color: Colors.gold },
   statLabel: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
   statDivider: { width: 1, backgroundColor: Colors.darkGreen },
   sectionHeader: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, marginBottom: 8, marginTop: 8, textTransform: 'uppercase', letterSpacing: 1 },
-  card: {
-    backgroundColor: Colors.cardDark,
-    borderRadius: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: Colors.darkGreen,
-    overflow: 'hidden',
-  },
+  card: { backgroundColor: Colors.cardDark, borderRadius: 16, marginBottom: 16, borderWidth: 1, borderColor: Colors.darkGreen, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', padding: 16 },
   rowIcon: { marginRight: 12 },
   rowContent: { flex: 1 },
   rowLabel: { fontSize: 15, color: Colors.textPrimary },
   rowValue: { fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
   rowDivider: { height: 1, backgroundColor: Colors.darkGreen, marginHorizontal: 16 },
-  signOutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.cardDark,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.error,
-    gap: 8,
-  },
+  signOutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.cardDark, borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: Colors.error, gap: 8 },
   signOutText: { fontSize: 16, color: Colors.error, fontWeight: '600' },
   version: { textAlign: 'center', color: Colors.textSecondary, fontSize: 12, marginBottom: 8 },
 });

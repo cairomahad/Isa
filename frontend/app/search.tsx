@@ -7,10 +7,11 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Shadows, Typography } from '../constants/colors';
+import { useColors } from '../contexts/ThemeContext';
+import { Shadows, Typography } from '../constants/colors';
 
 import { router } from 'expo-router';
 
@@ -29,6 +30,8 @@ export default function SearchScreen() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTypes, setSearchTypes] = useState<string[]>(['lessons', 'hadiths', 'stories']);
+  const Colors = useColors();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
 
   const handleSearch = async () => {
     if (query.trim().length < 2) return;
@@ -70,8 +73,13 @@ export default function SearchScreen() {
   const handleResultPress = (result: SearchResult) => {
     if (result.type === 'lesson') {
       router.push(`/lesson/${result.id}`);
+    } else if (result.type === 'hadith') {
+      router.push({ pathname: '/(tabs)/hadiths', params: { id: result.id } } as any);
+    } else if (result.type === 'story') {
+      router.push({ pathname: '/(tabs)/hadiths', params: { id: result.id } } as any);
+    } else if (result.type === 'benefit') {
+      router.push({ pathname: '/(tabs)/hadiths', params: { id: result.id } } as any);
     }
-    // Add more navigation logic for other types
   };
 
   return (
@@ -203,126 +211,28 @@ export default function SearchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: Colors.backgroundPage,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 16,
-    paddingBottom: 20,
-  },
-  backButton: {
-    marginRight: 16,
-  },
-  title: {
-    ...Typography.h1,
-    fontSize: 28,
-  },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 16,
-    ...Shadows.card,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: Colors.textPrimary,
-    marginLeft: 12,
-  },
-  filters: {
-    flexDirection: 'row',
-    marginBottom: 20,
-    gap: 8,
-  },
-  filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  filterChipActive: {
-    backgroundColor: Colors.primaryLight,
-    borderColor: Colors.primary,
-  },
-  filterText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  filterTextActive: {
-    color: Colors.primary,
-  },
-  resultsContainer: {
-    flex: 1,
-  },
-  loadingContainer: {
-    paddingVertical: 60,
-    alignItems: 'center',
-  },
-  resultCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    ...Shadows.card,
-  },
-  resultIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  resultContent: {
-    flex: 1,
-  },
-  resultTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  resultSnippet: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    marginBottom: 6,
-  },
-  resultType: {
-    fontSize: 12,
-    color: Colors.textTertiary,
-    fontWeight: '600',
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 80,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: Colors.textTertiary,
-    marginTop: 6,
-  },
+const makeStyles = (Colors: any) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: Colors.backgroundPage },
+  container: { flex: 1, paddingHorizontal: 20 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingTop: 16, paddingBottom: 20 },
+  backButton: { marginRight: 16 },
+  title: { ...Typography.h1, fontSize: 28, color: Colors.textPrimary },
+  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, marginBottom: 16, ...Shadows.card },
+  searchInput: { flex: 1, fontSize: 16, color: Colors.textPrimary, marginLeft: 12 },
+  filters: { flexDirection: 'row', marginBottom: 20, gap: 8 },
+  filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
+  filterChipActive: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
+  filterText: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
+  filterTextActive: { color: Colors.primary },
+  resultsContainer: { flex: 1 },
+  loadingContainer: { paddingVertical: 60, alignItems: 'center' },
+  resultCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 16, padding: 16, marginBottom: 12, ...Shadows.card },
+  resultIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  resultContent: { flex: 1 },
+  resultTitle: { fontSize: 16, fontWeight: '600', color: Colors.textPrimary, marginBottom: 4 },
+  resultSnippet: { fontSize: 14, color: Colors.textSecondary, marginBottom: 6 },
+  resultType: { fontSize: 12, color: Colors.textTertiary, fontWeight: '600' },
+  emptyState: { alignItems: 'center', paddingVertical: 80 },
+  emptyText: { fontSize: 18, fontWeight: '600', color: Colors.textSecondary, marginTop: 16 },
+  emptySubtext: { fontSize: 14, color: Colors.textTertiary, marginTop: 6 },
 });

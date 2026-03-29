@@ -3,43 +3,43 @@
 // ========== LIGHT THEME (DEFAULT) ==========
 export const Colors = {
   // Backgrounds
-  background: '#FFFFFF',           // Чистый белый
-  backgroundPage: '#F8F6F2',       // Тёплый off-white
-  surface: '#FFFFFF',              // Белые карточки
-  surfaceAccent: '#FDF9F4',        // Кремовый оттенок
-  
+  background: '#FFFFFF',
+  backgroundPage: '#F8F6F2',
+  surface: '#FFFFFF',
+  surfaceAccent: '#FDF9F4',
+
   // Gold (Primary)
-  primary: '#C4963A',              // Тёплое глубокое золото
-  primaryLight: '#E8C97A',         // Для фонов и бейджей
-  primaryText: '#A07C28',          // Для читаемости на белом
-  primaryBorder: '#F0DFA0',        // Тонкие рамки
-  
+  primary: '#C4963A',
+  primaryLight: '#E8C97A',
+  primaryText: '#A07C28',
+  primaryBorder: '#F0DFA0',
+
   // Green (Islamic accent)
-  green: '#2E7D5B',                // Исламский средний зелёный
-  greenLight: '#4CAF7D',           // Для иконок и успеха
-  greenBackground: '#F0F8F4',      // Очень светлый зелёный тинт
-  greenDark: '#1B5E3B',            // Только для маленьких деталей
-  
+  green: '#2E7D5B',
+  greenLight: '#4CAF7D',
+  greenBackground: '#F0F8F4',
+  greenDark: '#1B5E3B',
+
   // Text
-  textPrimary: '#1A1A2E',          // Почти чёрный
-  textSecondary: '#6B7280',        // Средний серый
-  textTertiary: '#9CA3AF',         // Светлый серый
-  
+  textPrimary: '#1A1A2E',
+  textSecondary: '#6B7280',
+  textTertiary: '#9CA3AF',
+
   // UI Elements
-  border: '#E5E7EB',               // Очень светлая граница
-  error: '#EF4444',                // Красный
-  success: '#2E7D5B',              // Зелёный успех
-  
+  border: '#E5E7EB',
+  error: '#EF4444',
+  success: '#2E7D5B',
+
   // Tab Bar
   tabBar: '#FFFFFF',
   tabBarActive: '#C4963A',
   tabBarInactive: '#9CA3AF',
-  
+
   // Other
   overlay: 'rgba(0,0,0,0.4)',
   white: '#FFFFFF',
 
-  // Aliases for legacy dark-theme references used across screens
+  // Aliases
   gold: '#C4963A',
   cardDark: '#FDF9F4',
   cardLight: '#F8F6F2',
@@ -48,47 +48,47 @@ export const Colors = {
   goldBorder: '#F0DFA0',
   lightGreen: '#4CAF7D',
   inputBg: '#F8F6F2',
+  goldBackground: '#FFF8EE',
 };
 
 // ========== DARK THEME ==========
-export const ColorsDark = {
-  // Backgrounds
-  background: '#0F0F0F',
-  backgroundPage: '#1A1A1A',
-  surface: '#242424',
-  surfaceAccent: '#2A2A2A',
-  
-  // Gold (Primary) - ярче для тёмного фона
-  primary: '#D4A853',
-  primaryLight: '#3D3420',
-  primaryText: '#D4A853',
-  primaryBorder: '#4A3C20',
-  
-  // Green
-  green: '#3D9B72',
-  greenLight: '#4CAF7D',
-  greenBackground: '#1A2E25',
+export const DarkColors = {
+  background: '#1A1A2E',
+  backgroundPage: '#16213E',
+  surface: '#0F3460',
+  surfaceAccent: '#1A1A2E',
+  primary: '#C4963A',
+  primaryLight: '#E8C97A',
+  primaryText: '#C4963A',
+  primaryBorder: '#8B6914',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#B0B8CC',
+  textTertiary: '#7A8499',
+  border: '#2A3550',
+  green: '#4CAF7D',
+  greenLight: '#81C784',
+  greenBackground: '#1B3A2D',
   greenDark: '#2E7D5B',
-  
-  // Text
-  textPrimary: '#F5F5F5',
-  textSecondary: '#9CA3AF',
-  textTertiary: '#6B7280',
-  
-  // UI Elements
-  border: '#333333',
-  error: '#EF4444',
-  success: '#3D9B72',
-  
-  // Tab Bar
-  tabBar: '#1A1A1A',
-  tabBarActive: '#D4A853',
-  tabBarInactive: '#6B7280',
-  
-  // Other
+  tabBar: '#0F1729',
+  tabBarActive: '#C4963A',
+  tabBarInactive: '#4A5568',
+  error: '#EF5350',
+  success: '#66BB6A',
   overlay: 'rgba(0,0,0,0.6)',
   white: '#FFFFFF',
+  // Legacy aliases
+  gold: '#C4963A',
+  cardDark: '#0F3460',
+  cardLight: '#1A1A2E',
+  darkGreen: '#2A3550',
+  mediumGreen: '#4CAF7D',
+  goldBorder: '#8B6914',
+  lightGreen: '#81C784',
+  inputBg: '#16213E',
+  goldBackground: '#1A1A2E',
 };
+
+export const ColorsDark = DarkColors;
 
 // ========== SHADOWS (iOS-style) ==========
 export const Shadows = {

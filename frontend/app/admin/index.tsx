@@ -167,7 +167,10 @@ export default function AdminPanel() {
             <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/admin/manage-quiz')}
+          >
             <View style={styles.menuIconContainer}>
               <Ionicons name="create" size={24} color={Colors.primary} />
             </View>
