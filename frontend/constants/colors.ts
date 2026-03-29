@@ -38,6 +38,16 @@ export const Colors = {
   // Other
   overlay: 'rgba(0,0,0,0.4)',
   white: '#FFFFFF',
+
+  // Aliases for legacy dark-theme references used across screens
+  gold: '#C4963A',
+  cardDark: '#FDF9F4',
+  cardLight: '#F8F6F2',
+  darkGreen: '#E5E7EB',
+  mediumGreen: '#2E7D5B',
+  goldBorder: '#F0DFA0',
+  lightGreen: '#4CAF7D',
+  inputBg: '#F8F6F2',
 };
 
 // ========== DARK THEME ==========

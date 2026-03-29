@@ -129,12 +129,16 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Продолжить обучение</Text>
-            <TouchableOpacity onPress={() => router.push('/(tabs)')}>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/lessons')}>
               <Text style={styles.sectionLink}>Все курсы</Text>
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.courseCard}>
+          <TouchableOpacity
+            style={styles.courseCard}
+            onPress={() => router.push('/(tabs)/lessons')}
+            testID="course-shafi-btn"
+          >
             <View style={styles.courseContent}>
               <Text style={styles.courseEmoji}>📘</Text>
               <View style={styles.courseInfo}>

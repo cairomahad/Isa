@@ -238,6 +238,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     lineHeight: 40,
     marginBottom: 12,
+    backgroundColor: 'transparent',
   },
   divider: { height: 1, backgroundColor: Colors.darkGreen, marginBottom: 16 },
   storyTitle: {
@@ -245,12 +246,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: Colors.gold,
     marginBottom: 12,
+    backgroundColor: 'transparent',
   },
   russianText: {
     fontSize: 16,
     color: Colors.textPrimary,
     lineHeight: 26,
     fontStyle: 'italic',
+    backgroundColor: 'transparent',
   },
   sourceRow: {
     flexDirection: 'row',

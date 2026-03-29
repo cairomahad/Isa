@@ -3,6 +3,7 @@ import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-rout
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ThemeProvider } from '../contexts/ThemeContext';
 
 export default function RootLayout() {
   const { session, setSession, setUser, setCity, setLoading } = useAuthStore();
@@ -102,11 +103,13 @@ export default function RootLayout() {
   }, [session, segments, isReady]);
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="(auth)" />
-      <Stack.Screen name="lesson/[id]" options={{ presentation: 'card' }} />
-      <Stack.Screen name="admin/index" options={{ presentation: 'modal' }} />
-    </Stack>
+    <ThemeProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="lesson/[id]" options={{ presentation: 'card' }} />
+        <Stack.Screen name="admin/index" options={{ presentation: 'modal' }} />
+      </Stack>
+    </ThemeProvider>
   );
 }

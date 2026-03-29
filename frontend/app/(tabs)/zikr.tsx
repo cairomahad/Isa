@@ -220,8 +220,12 @@ export default function ZikrScreen() {
 
           {/* Dhikr Text */}
           <View style={styles.dhikrTextContainer}>
-            <Text style={styles.arabicText}>{selectedDhikr.arabic}</Text>
-            <Text style={styles.transliterationText}>{selectedDhikr.transliteration}</Text>
+            {!!selectedDhikr.arabic && (
+              <Text style={styles.arabicText}>{selectedDhikr.arabic}</Text>
+            )}
+            {!!selectedDhikr.transliteration && (
+              <Text style={styles.transliterationText}>{selectedDhikr.transliteration}</Text>
+            )}
             <Text style={styles.translationText}>{selectedDhikr.translation}</Text>
           </View>
 
@@ -266,7 +270,9 @@ export default function ZikrScreen() {
               onPress={() => handleSelectDhikr(dhikr)}
             >
               <View style={styles.dhikrCardContent}>
-                <Text style={styles.dhikrCardArabic}>{dhikr.arabic}</Text>
+                {!!dhikr.arabic && (
+                  <Text style={styles.dhikrCardArabic}>{dhikr.arabic}</Text>
+                )}
                 <Text style={styles.dhikrCardTranslation}>{dhikr.translation}</Text>
                 <Text style={styles.dhikrCardGoal}>Цель: {dhikr.goal}x</Text>
               </View>

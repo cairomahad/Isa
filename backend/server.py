@@ -1707,8 +1707,19 @@ async def get_file(bucket: str, filename: str):
 async def get_zikr_list():
     """Get all zikr items from database"""
     try:
-        response = supabase.table('zikr_list').select('*').order('category').execute()
-        return {"zikr_items": response.data}
+        response = supabase.table('zikr_list').select('*').order('id').execute()
+        zikr_items = []
+        for item in (response.data or []):
+            zikr_items.append({
+                "id": str(item.get('id', '')),
+                "arabic": "",
+                "transliteration": "",
+                "translation": item.get('text_ru', ''),
+                "goal": 33,
+                "reward_points": 10,
+                "category": "daily",
+            })
+        return {"zikr_items": zikr_items}
     except Exception as e:
         logger.error(f"Error fetching zikr: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1805,19 +1816,30 @@ async def submit_quiz(request: SubmitQuizRequest):
 # ============ LEADERBOARD ENDPOINT ============
 @api_router.get("/leaderboard")
 async def get_leaderboard(limit: int = 20):
-    """Get top users by points"""
+    """Get top users by zikr_count (leaderboard)"""
     try:
-        response = supabase.table('users').select('id, display_name, phone, points').order('points', desc=True).limit(limit).execute()
-        
+        response = supabase.table('users').select(
+            'id, display_name, first_name, username, zikr_count'
+        ).order('zikr_count', desc=True).limit(limit).execute()
+
         leaderboard = []
-        for idx, user in enumerate(response.data):
+        rank = 1
+        for user in (response.data or []):
+            name = (
+                user.get('display_name') or
+                user.get('first_name') or
+                user.get('username') or
+                'Студент'
+            )
+            score = user.get('zikr_count') or 0
             leaderboard.append({
-                "rank": idx + 1,
-                "user_id": user['id'],
-                "name": user.get('display_name', user['phone']),
-                "points": user.get('points', 0)
+                "rank": rank,
+                "user_id": str(user.get('id', '')),
+                "name": name,
+                "points": score,
             })
-        
+            rank += 1
+
         return {"leaderboard": leaderboard}
     except Exception as e:
         logger.error(f"Error fetching leaderboard: {e}")
@@ -1904,14 +1926,14 @@ async def search_content(request: SearchRequest):
         if "lessons" in request.types:
             lessons_response = supabase.table('video_lessons').select('*').execute()
             for lesson in lessons_response.data:
-                title = lesson.get('title', '').lower()
-                desc = lesson.get('description', '').lower()
+                title = (lesson.get('title') or '').lower()
+                desc = (lesson.get('description') or '').lower()
                 if query in title or query in desc:
                     results.append({
                         "type": "lesson",
                         "id": lesson['id'],
-                        "title": lesson.get('title', ''),
-                        "snippet": lesson.get('description', '')[:100],
+                        "title": lesson.get('title') or 'Урок',
+                        "snippet": (lesson.get('description') or '')[:100],
                         "relevance": 1.0 if query in title else 0.7
                     })
         
@@ -1919,14 +1941,13 @@ async def search_content(request: SearchRequest):
         if "hadiths" in request.types:
             hadiths_response = supabase.table('hadiths').select('*').execute()
             for hadith in hadiths_response.data:
-                russian = hadith.get('russian_text', '').lower()
-                arabic = hadith.get('arabic_text', '').lower()
-                if query in russian or query in arabic:
+                text = hadith.get('text_ru', '').lower()
+                if query in text:
                     results.append({
                         "type": "hadith",
                         "id": hadith['id'],
                         "title": "Хадис",
-                        "snippet": hadith.get('russian_text', '')[:100],
+                        "snippet": hadith.get('text_ru', '')[:100],
                         "relevance": 0.9
                     })
         
@@ -1934,15 +1955,16 @@ async def search_content(request: SearchRequest):
         if "stories" in request.types:
             stories_response = supabase.table('stories').select('*').execute()
             for story in stories_response.data:
-                title = story.get('title', '').lower()
-                text = story.get('text', '').lower()
-                if query in title or query in text:
+                text = story.get('text_ru', '').lower()
+                if query in text:
+                    lines = story.get('text_ru', '').split('\n', 1)
+                    title = lines[0].strip('*').strip()[:60] if lines else 'История'
                     results.append({
                         "type": "story",
                         "id": story['id'],
-                        "title": story.get('title', ''),
-                        "snippet": story.get('text', '')[:100],
-                        "relevance": 1.0 if query in title else 0.8
+                        "title": title,
+                        "snippet": story.get('text_ru', '')[:100],
+                        "relevance": 0.8
                     })
         
         # Sort by relevance

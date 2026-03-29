@@ -35,7 +35,7 @@ function MedalItem({ user }: { user: UserRank }) {
       </View>
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>
-          {user.display_name.slice(0, 2).toUpperCase()}
+          {(user.display_name || '??').slice(0, 2).toUpperCase()}
         </Text>
       </View>
       <Text style={styles.userName} numberOfLines={1}>{user.display_name}</Text>
@@ -60,9 +60,9 @@ export default function RatingScreen() {
       
       if (data.leaderboard && data.leaderboard.length > 0) {
         const ranked = data.leaderboard.map((entry: any) => ({
-          id: entry.user_id,
-          display_name: entry.name,
-          points: entry.points,
+          id: String(entry.user_id),
+          display_name: entry.name || 'Студент',
+          points: entry.points || 0,
           rank: entry.rank
         }));
         setUsers(ranked);
