@@ -69,8 +69,13 @@ export default function SettingsScreen() {
           // Clear auth store
           useAuthStore.getState().setSession(null);
           useAuthStore.getState().setUser(null);
-          // Clear local storage
-          await AsyncStorage.removeItem('selected_city');
+          // Clear ALL cached auth data
+          await AsyncStorage.multiRemove([
+            'cached_user',
+            'cached_session_id',
+            'local_user_id',
+            'selected_city',
+          ]);
           // Navigate to welcome
           router.replace('/(auth)/welcome');
         },

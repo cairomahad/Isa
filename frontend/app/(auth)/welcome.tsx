@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Shadows } from '../../constants/colors';
 import { useAuthStore } from '../../store/authStore';
 
@@ -30,8 +31,8 @@ export default function WelcomeScreen() {
     setLoading(true);
 
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
-      
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://tazakkur-production-c8c9.up.railway.app';
+
       const response = await fetch(`${backendUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -44,14 +45,20 @@ export default function WelcomeScreen() {
         throw new Error(data.detail || 'Неверный телефон или пароль');
       }
 
-      setSession({ user: { id: data.user_id, phone: data.phone } });
-      setUser({
+      const userData = {
         id: data.user_id,
         phone: data.phone,
         display_name: data.display_name,
         role: data.role,
         points: data.points || 0,
-      });
+      };
+
+      // Persist session to AsyncStorage — survives app restarts
+      await AsyncStorage.setItem('cached_user', JSON.stringify(userData));
+      await AsyncStorage.setItem('cached_session_id', data.user_id);
+
+      setSession({ user: { id: data.user_id, phone: data.phone } } as any);
+      setUser(userData);
 
       if (data.role === 'admin') {
         router.replace('/admin');
