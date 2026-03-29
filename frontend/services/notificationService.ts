@@ -153,18 +153,60 @@ export async function getScheduledPrayerNotifications() {
 }
 
 /**
- * Тестовое уведомление (через 5 секунд)
+ * Планирование уведомления о разблокировке нового урока (через 3 дня)
  */
-export async function sendTestNotification(): Promise<void> {
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: 'Tazakkur',
-      body: 'Тестовое уведомление работает!',
-      sound: 'default',
-    },
-    trigger: {
-      type: SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds: 5,
-    },
-  });
+export async function scheduleLessonUnlockNotification(
+  lessonTitle: string,
+  courseLabel: string,
+  unlockDate?: Date
+): Promise<string | null> {
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') {
+      const { status: newStatus } = await Notifications.requestPermissionsAsync();
+      if (newStatus !== 'granted') return null;
+    }
+
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('lessons', {
+        name: 'Новые уроки',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#C4963A',
+        sound: 'default',
+      });
+    }
+
+    const triggerDate = unlockDate || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    const id = `lesson-unlock-${Date.now()}`;
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: id,
+      content: {
+        title: 'Новый урок доступен!',
+        body: `${courseLabel}: следующий урок открылся. Продолжайте обучение!`,
+        sound: 'default',
+        data: { type: 'lesson-unlock' },
+      },
+      trigger: { date: triggerDate },
+    });
+
+    console.log(`Lesson unlock notification scheduled for ${triggerDate.toISOString()}`);
+    return id;
+  } catch (e) {
+    console.warn('Failed to schedule lesson unlock notification:', e);
+    return null;
+  }
+}
+
+/**
+ * Отмена уведомлений о разблокировке уроков
+ */
+export async function cancelLessonNotifications(): Promise<void> {
+  const all = await Notifications.getAllScheduledNotificationsAsync();
+  for (const n of all) {
+    if (n.identifier.startsWith('lesson-unlock-')) {
+      await Notifications.cancelScheduledNotificationAsync(n.identifier);
+    }
+  }
 }

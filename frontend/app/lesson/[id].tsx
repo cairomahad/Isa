@@ -1,6 +1,6 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator,
+  ActivityIndicator, Alert,
 } from 'react-native';
 import { useEffect, useState, useMemo } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -11,6 +11,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { useColors } from '../../contexts/ThemeContext';
 import { Shadows } from '../../constants/colors';
+import { scheduleLessonUnlockNotification } from '../../services/notificationService';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://tazakkur-production-c8c9.up.railway.app';
 
@@ -50,6 +51,7 @@ export default function LessonDetailScreen() {
   const [answered, setAnswered] = useState(false);
   const [score, setScore] = useState(0);
   const [quizDone, setQuizDone] = useState(false);
+  const [lessonCompleted, setLessonCompleted] = useState(false);
 
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
 
@@ -109,6 +111,7 @@ export default function LessonDetailScreen() {
   };
 
   const handleFinishQuiz = async () => {
+    // Submit quiz score
     if (user?.id && id) {
       try {
         await fetch(`${API_URL}/api/quiz/submit`, {
@@ -120,7 +123,35 @@ export default function LessonDetailScreen() {
         console.warn('Quiz submit error:', e);
       }
     }
+    // Mark lesson complete + schedule next-unlock notification
+    await completeLesson();
     router.back();
+  };
+
+  const completeLesson = async () => {
+    if (!user?.id || !id || lessonCompleted) return;
+    try {
+      const res = await fetch(`${API_URL}/api/lesson/${id}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setLessonCompleted(true);
+        // Schedule notification 3 days later
+        const courseLabel = lesson?.category === 'fard_shafi' ? 'Шафиитский мазхаб'
+          : lesson?.category === 'fard_hanafi' ? 'Ханафитский мазхаб'
+          : lesson?.category === 'arab' ? 'Арабский язык'
+          : 'Семейные отношения';
+        const unlockDate = data.next_unlock_date
+          ? new Date(data.next_unlock_date)
+          : new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+        await scheduleLessonUnlockNotification(lesson?.title || '', courseLabel, unlockDate);
+      }
+    } catch (e) {
+      console.warn('Complete lesson error:', e);
+    }
   };
 
   const videoId = lesson?.file_id || lesson?.video_url || '';
@@ -241,6 +272,26 @@ export default function LessonDetailScreen() {
                 <Text style={styles.quizBtnText}>Пройти тест ({quizTasks.length} вопр.)</Text>
               </TouchableOpacity>
             )}
+            {!lessonCompleted && quizTasks.length === 0 && (
+              <TouchableOpacity
+                style={styles.completeBtn}
+                onPress={async () => {
+                  await completeLesson();
+                  Alert.alert('Отлично!', 'Урок завершён. Следующий откроется через 3 дня.');
+                  router.back();
+                }}
+                testID="complete-lesson-btn"
+              >
+                <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                <Text style={styles.completeBtnText}>Завершить урок</Text>
+              </TouchableOpacity>
+            )}
+            {lessonCompleted && (
+              <View style={styles.completedBadge}>
+                <Ionicons name="checkmark-circle" size={20} color={Colors.green} />
+                <Text style={styles.completedBadgeText}>Урок завершён</Text>
+              </View>
+            )}
             {lesson?.pdf_file_id && (
               <TouchableOpacity style={styles.pdfBtn}>
                 <Ionicons name="document-text" size={20} color={Colors.primary} />
@@ -279,6 +330,18 @@ const makeStyles = (Colors: ReturnType<typeof useColors>) => StyleSheet.create({
     borderRadius: 12, padding: 16, alignItems: 'center', gap: 10, ...Shadows.gold,
   },
   quizBtnText: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
+  completeBtn: {
+    flexDirection: 'row', backgroundColor: Colors.green,
+    borderRadius: 12, padding: 16, alignItems: 'center', gap: 10,
+    justifyContent: 'center', ...Shadows.card,
+  },
+  completeBtnText: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
+  completedBadge: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.greenBackground, borderRadius: 12, padding: 16, gap: 8,
+    borderWidth: 1, borderColor: Colors.green,
+  },
+  completedBadgeText: { fontSize: 16, fontWeight: '600', color: Colors.green },
   pdfBtn: {
     flexDirection: 'row', backgroundColor: Colors.surface,
     borderRadius: 12, padding: 16, alignItems: 'center', gap: 10,
