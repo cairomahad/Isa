@@ -1613,6 +1613,11 @@ class QuizBatchRequest(BaseModel):
 async def create_quiz_batch(request: QuizBatchRequest):
     """Batch insert quiz questions for a lesson (uses option_a/b/c/d schema)"""
     try:
+        # Verify lesson exists first
+        lesson_check = supabase.table('video_lessons').select('id').eq('id', request.video_id).execute()
+        if not lesson_check.data:
+            raise HTTPException(status_code=400, detail=f"Урок с id={request.video_id} не найден")
+
         idx_to_letter = {0: 'a', 1: 'b', 2: 'c', 3: 'd'}
         rows = []
         for q in request.questions:
