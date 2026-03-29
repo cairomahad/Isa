@@ -18,7 +18,7 @@
       },
       "env": {
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
-        "EXPO_PUBLIC_BACKEND_URL": "http://192.168.1.8:8001",
+        "EXPO_PUBLIC_BACKEND_URL": "http://10.171.69.237:8001",
         "EXPO_PUBLIC_SUPABASE_URL": "https://kmhhazpyalpjwspjxzry.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttaGhhenB5YWxwandzcGp4enJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4ODIyNzEsImV4cCI6MjA3ODQ1ODI3MX0.adj7b0hh3deVFN4JK6_s0Vjx_KtdLs9N9LaVkQQ__BA",
         "EXPO_PUBLIC_ADMIN_PASSWORD": "admin2024"
