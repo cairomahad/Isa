@@ -324,15 +324,7 @@ async def get_prayer_times(city: str = Query("moscow", description="City slug"))
         
         city_data = CITIES[city]
         
-        # Check cache (24 hours)
-        cache_key = f"prayer_times_{city}_{datetime.now().strftime('%Y-%m-%d')}"
-        cached_response = supabase.table('prayer_cache').select('*').eq('key', cache_key).execute(); cached = cached_response.data[0] if cached_response.data else None
-        
-        if cached and cached.get('data'):
-            logger.info(f"Prayer times cache hit for {city}")
-            return PrayerTimes(**cached['data'])
-        
-        # Call Aladhan API
+        # Call Aladhan API directly (no DB cache needed)
         async with httpx.AsyncClient(follow_redirects=True) as client:
             url = "http://api.aladhan.com/v1/timings"
             params = {
@@ -355,13 +347,6 @@ async def get_prayer_times(city: str = Query("moscow", description="City slug"))
             date=data["data"]["date"]["readable"],
             city=city_data["name"],
         )
-        
-        # Cache for 24 hours
-        supabase.table('prayer_cache').insert({
-            "key": cache_key,
-            "data": result.dict(),
-            "created_at": datetime.now(),
-        })
         
         logger.info(f"Prayer times fetched for {city}")
         return result
@@ -531,6 +516,12 @@ COURSE_CONFIG = {
 async def get_lessons(user_id: str = Query(..., description="User ID")):
     """Get all lessons with unlock logic for user"""
     try:
+        # Validate UUID format
+        try:
+            import uuid as _uuid
+            _uuid.UUID(user_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="user_id must be a valid UUID")
         # Fetch all video lessons from Supabase
         lessons_response = supabase.table('video_lessons').select('*').order('category, id').execute()
         
@@ -1716,7 +1707,7 @@ async def get_file(bucket: str, filename: str):
 async def get_zikr_list():
     """Get all zikr items from database"""
     try:
-        response = supabase.table('zikr_items').select('*').order('category').execute()
+        response = supabase.table('zikr_list').select('*').order('category').execute()
         return {"zikr_items": response.data}
     except Exception as e:
         logger.error(f"Error fetching zikr: {e}")
