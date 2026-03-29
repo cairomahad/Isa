@@ -41,14 +41,14 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    if (user?.user_id) {
+    if (user?.id) {
       fetchProfile();
     }
   }, [user]);
 
   const fetchProfile = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/profile/${user?.user_id}`);
+      const response = await fetch(`${API_URL}/api/profile/${user?.id}`);
       const data = await response.json();
       setProfile(data);
     } catch (error) {

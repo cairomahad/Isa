@@ -1869,44 +1869,41 @@ async def get_user_achievements(user_id: str):
 # ============ PROFILE ENDPOINT ============
 @api_router.get("/profile/{user_id}")
 async def get_user_profile(user_id: str):
-    """Get complete user profile with stats"""
+    """Get user profile with stats"""
     try:
-        # Get user data
         user_response = supabase.table('users').select('*').eq('id', user_id).execute()
         if not user_response.data:
             raise HTTPException(status_code=404, detail="User not found")
-        
         user = user_response.data[0]
-        
-        # Get completed lessons count
-        progress_response = supabase.table('course_progress').select('*').eq('user_id', user_id).execute()
-        completed_lessons = sum([p.get('last_completed_order', 0) for p in progress_response.data])
-        
-        # Get achievements
-        achievements_response = supabase.table('user_achievements').select('*').eq('user_id', user_id).execute()
-        
-        # Get quiz stats
-        quiz_response = supabase.table('quiz_attempts').select('*').eq('user_id', user_id).execute()
-        quiz_stats = {
-            "total_attempts": len(quiz_response.data),
-            "passed": len([q for q in quiz_response.data if q.get('passed', False)])
-        }
-        
+
+        # Count completed homeworks (safe fallback)
+        completed_lessons = 0
+        quiz_passed = 0
+        quiz_total = 0
+        try:
+            hw = supabase.table('homeworks').select('id, status').eq('telegram_id', user.get('telegram_id', '')).execute()
+            completed_lessons = len([h for h in (hw.data or []) if h.get('status') == 'approved'])
+            quiz_total = len(hw.data or [])
+            quiz_passed = completed_lessons
+        except Exception:
+            pass
+
         return {
             "user": {
-                "id": user['id'],
-                "name": user.get('display_name', user['phone']),
-                "phone": user['phone'],
+                "id": user.get('id', ''),
+                "name": user.get('display_name') or user.get('first_name') or user.get('phone', 'Студент'),
+                "phone": user.get('phone', ''),
                 "role": user.get('role', 'student'),
-                "points": user.get('points', 0),
+                "points": user.get('zikr_count', 0),
+                "created_at": str(user.get('created_at', '')),
             },
             "stats": {
                 "completed_lessons": completed_lessons,
-                "achievements_count": len(achievements_response.data),
-                "quiz_passed": quiz_stats["passed"],
-                "quiz_total": quiz_stats["total_attempts"]
+                "achievements_count": 0,
+                "quiz_passed": quiz_passed,
+                "quiz_total": quiz_total,
             },
-            "achievements": achievements_response.data[:5]  # Latest 5
+            "achievements": []
         }
     except HTTPException:
         raise
