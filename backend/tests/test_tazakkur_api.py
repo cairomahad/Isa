@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = "https://tazakkur-fix.preview.emergentagent.com"
+BASE_URL = "https://learning-app-test.preview.emergentagent.com"
 
 class TestHealthCheck:
     """Health check endpoint"""
