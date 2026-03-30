@@ -37,6 +37,7 @@ interface UmmaState {
   toggleLike: (postId: string, userId: string) => Promise<void>;
   createPost: (data: NewPostData) => Promise<UmmaPost>;
   deletePost: (postId: string, userId: string) => Promise<void>;
+  reset: () => void;
 }
 
 export const useUmmaStore = create<UmmaState>((set, get) => ({
@@ -146,4 +147,13 @@ export const useUmmaStore = create<UmmaState>((set, get) => ({
     }
     set(state => ({ posts: state.posts.filter(p => p.id !== postId) }));
   },
+
+  reset: () => set({
+    posts: [],
+    page: 1,
+    hasMore: true,
+    isLoading: false,
+    canPost: false,
+    canPostChecked: false,
+  }),
 }));

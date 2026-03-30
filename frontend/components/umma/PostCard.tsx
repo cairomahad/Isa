@@ -76,13 +76,13 @@ function Avatar({ name, gradient }: { name: string; gradient: [string, string] }
   );
 }
 
-// Градиенты для аватаров (как разные цвета в донорском приложении)
+// Градиенты для аватаров — в цветах приложения (gold/green)
 const GRADIENTS: [string, string][] = [
-  ['#7A40F8', '#4cc9f0'],
-  ['#C4963A', '#E8C97A'],
-  ['#2E7D5B', '#4CAF7D'],
-  ['#f72585', '#C459F4'],
-  ['#C44536', '#fdac1d'],
+  ['#C4963A', '#2E7D5B'],  // gold → green (основная тема)
+  ['#C4963A', '#E8C97A'],  // gold → gold light
+  ['#2E7D5B', '#4CAF7D'],  // green dark → green light
+  ['#C4963A', '#4CAF7D'],  // gold → green light
+  ['#C44536', '#fdac1d'],  // красный (для разнообразия)
 ];
 
 function getGradient(name: string): [string, string] {

@@ -57,12 +57,14 @@ export default function EveningLessonScreen() {
     if (!url) return Alert.alert('Нет аудио', 'Аудиофайл недоступен офлайн');
     try {
       await soundRef.current?.unloadAsync();
-      setPlayingKey(key);
+      soundRef.current = null;
+      // setPlayingKey AFTER successful sound creation to avoid showing wrong button state
       const { sound } = await Audio.Sound.createAsync(
         { uri: url },
         { shouldPlay: true }
       );
       soundRef.current = sound;
+      setPlayingKey(key);
       sound.setOnPlaybackStatusUpdate((status) => {
         if (status.isLoaded && status.didJustFinish) {
           setPlayingKey(null);

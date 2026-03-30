@@ -12,6 +12,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { useUmmaStore } from '../../store/ummaStore';
 import { useColors } from '../../contexts/ThemeContext';
@@ -25,6 +26,8 @@ export default function UmmaScreen() {
   const { user } = useAuthStore();
   const Colors = useColors();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = 58 + Math.max(insets.bottom, 8) + 30;
 
   const {
     posts, isLoading, hasMore, canPost,
@@ -192,7 +195,7 @@ export default function UmmaScreen() {
 
       {/* FAB — как кнопка compose, только если canPost */}
       {canPost && (
-        <PressEffect style={styles.fabWrapper}>
+        <PressEffect style={[styles.fabWrapper, { bottom: tabBarHeight + 12 }]}>
           <Pressable
             style={styles.fab}
             onPress={() => setModalVisible(true)}

@@ -13,6 +13,7 @@ import { Path, Svg } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '../../contexts/ThemeContext';
+import { useRouter } from 'expo-router';
 
 const { width: WIDTH } = Dimensions.get('screen');
 
@@ -116,9 +117,10 @@ function TabItem({ isFocused, icon, onPress, tintColor }: TabItemProps) {
 interface CenterButtonProps {
   isFocused: boolean;
   onPress: () => void;
+  Colors: any;
 }
 
-function CenterButton({ isFocused, onPress }: CenterButtonProps) {
+function CenterButton({ isFocused, onPress, Colors }: CenterButtonProps) {
   const scale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -132,9 +134,9 @@ function CenterButton({ isFocused, onPress }: CenterButtonProps) {
   return (
     <View style={styles.centerSlot}>
       <Animated.View style={{ transform: [{ translateY: -(50 / 2 + 5) }, { scale }] }}>
-        <TouchableOpacity onPress={onPress} style={styles.centerPressable}>
+        <TouchableOpacity onPress={onPress} style={styles.centerPressable} activeOpacity={0.8}>
           <LinearGradient
-            colors={['#7A40F8', '#4cc9f0']}   // как в NewPostIcon.js
+            colors={[Colors.primary, Colors.green]}
             start={{ x: 0, y: 1 }}
             end={{ x: 1, y: 0 }}
             style={styles.centerGradient}
@@ -160,6 +162,7 @@ const SCREEN_ICONS: Record<string, string> = {
 export default function UmmaTabBar({ state, descriptors, navigation }: any) {
   const Colors  = useColors();
   const insets  = useSafeAreaInsets();
+  const router  = useRouter();
   const tabHeight = 58 + Math.max(insets.bottom, 8);
 
   // Только видимые вкладки
@@ -168,27 +171,23 @@ export default function UmmaTabBar({ state, descriptors, navigation }: any) {
   );
 
   return (
-    <View style={{ height: tabHeight + 20, position: 'relative' }}>
+    <View style={{ height: tabHeight + 30, position: 'relative' }}>
       {/* SVG кривая — точная копия из TabBarSvg.js */}
       <TabBarSvg height={tabHeight} fill={Colors.tabBar} />
 
       <View
         style={[
           styles.container,
-          { paddingBottom: Math.max(insets.bottom, 8) },
+          { height: tabHeight, paddingBottom: Math.max(insets.bottom, 8) },
         ]}
       >
         {visibleRoutes.map((route: any, index: number) => {
           const isFocused = state.routes[state.index].name === route.name;
           const isCenter  = route.name === 'umma';
 
+          // FIX: simple navigate without navigation.emit to prevent crash
           const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
-            if (!isFocused && !event.defaultPrevented) {
+            if (!isFocused) {
               navigation.navigate(route.name);
             }
           };
@@ -199,6 +198,7 @@ export default function UmmaTabBar({ state, descriptors, navigation }: any) {
                 key={route.key}
                 isFocused={isFocused}
                 onPress={onPress}
+                Colors={Colors}
               />
             );
           }
@@ -230,6 +230,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 20,
+    overflow: 'visible',
   },
   tabItem: {
     flex: 1,
@@ -241,6 +242,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'visible',
   },
   centerPressable: {
     justifyContent: 'center',

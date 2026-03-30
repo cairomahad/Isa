@@ -12,6 +12,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useColors } from '../../contexts/ThemeContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { CITIES } from '../../constants/cities';
+import { useUmmaStore } from '../../store/ummaStore';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function SettingsScreen() {
   const { toggleTheme, isDark } = useTheme();
   const Colors = useColors();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
+  const resetUmma = useUmmaStore(s => s.reset);
   const [name, setName] = useState(user?.display_name || '');
   const [editingName, setEditingName] = useState(false);
   const [savingName, setSavingName] = useState(false);
@@ -66,6 +68,8 @@ export default function SettingsScreen() {
         text: 'Выйти',
         style: 'destructive',
         onPress: async () => {
+          // Reset umma store so canPost is re-checked on next login
+          resetUmma();
           // Clear auth store
           useAuthStore.getState().setSession(null);
           useAuthStore.getState().setUser(null);

@@ -103,16 +103,26 @@ export const QuranService = {
   async getAyah(surah: number, ayah: number): Promise<AyahData> {
     const key = `${surah}:${ayah}`;
 
-    // 1. Memory cache
-    if (memCache.has(key)) return memCache.get(key)!;
+    // 1. Memory cache — validate data is correct for this surah:ayah
+    if (memCache.has(key)) {
+      const cached = memCache.get(key)!;
+      if (cached.surah === surah && cached.ayah === ayah && cached.audioUrl) {
+        return cached;
+      }
+      memCache.delete(key);
+    }
 
-    // 2. AsyncStorage cache
+    // 2. AsyncStorage cache — validate correctness
     try {
       const stored = await AsyncStorage.getItem(CACHE_PREFIX + key);
       if (stored) {
         const parsed: AyahData = JSON.parse(stored);
-        memCache.set(key, parsed);
-        return parsed;
+        if (parsed.surah === surah && parsed.ayah === ayah && parsed.audioUrl) {
+          memCache.set(key, parsed);
+          return parsed;
+        }
+        // Invalid/stale cache — delete and refetch
+        await AsyncStorage.removeItem(CACHE_PREFIX + key);
       }
     } catch {}
 
@@ -124,27 +134,39 @@ export const QuranService = {
       const json = await res.json();
       const [arabic, translit] = json?.data ?? [];
 
+      const numberInQuran = arabic?.numberInQuran;
+
+      // Primary CDN — only when numberInQuran is valid (>0)
+      // Fallback CDN — always available via surah:ayah numbering
+      const paddedSurah = String(surah).padStart(3, '0');
+      const paddedAyah  = String(ayah).padStart(3, '0');
+      const audioUrl = (numberInQuran && numberInQuran > 0)
+        ? `https://cdn.islamic.network/quran/audio/128/ar.husary/${numberInQuran}.mp3`
+        : `https://everyayah.com/data/Husary_128kbps/${paddedSurah}${paddedAyah}.mp3`;
+
       const data: AyahData = {
         surah,
         surahNameEn: arabic?.surah?.englishName ?? `Surah ${surah}`,
         surahNameAr: arabic?.surah?.name ?? '',
         ayah,
-        numberInQuran: arabic?.numberInQuran ?? 0,
+        numberInQuran: numberInQuran ?? 0,
         arabic: arabic?.text ?? '',
         translit: translit?.text ?? '',
-        audioUrl: `https://cdn.islamic.network/quran/audio/128/ar.husary/${arabic?.numberInQuran ?? 1}.mp3`,
+        audioUrl,
       };
 
       memCache.set(key, data);
       await AsyncStorage.setItem(CACHE_PREFIX + key, JSON.stringify(data));
       return data;
     } catch (e) {
-      // Offline fallback
+      // Offline fallback — use everyayah CDN which doesn't need numberInQuran
+      const paddedSurah = String(surah).padStart(3, '0');
+      const paddedAyah  = String(ayah).padStart(3, '0');
       return {
         surah, surahNameEn: `Surah ${surah}`, surahNameAr: '',
         ayah, numberInQuran: 0,
         arabic: '(офлайн — нет соединения)', translit: '',
-        audioUrl: '',
+        audioUrl: `https://everyayah.com/data/Husary_128kbps/${paddedSurah}${paddedAyah}.mp3`,
       };
     }
   },
@@ -160,24 +182,30 @@ export const QuranService = {
     let s = surah;
     let a = startAyah;
 
+    // Normalize starting position — if startAyah exceeds surah, advance to next
+    const initTotal = await this.getSurahLength(s);
+    if (a > initTotal) {
+      s = s + 1 > 114 ? 1 : s + 1;
+      a = 1;
+    }
+
     for (let i = 0; i < maxAyahs; i++) {
+      if (s > 114) break;
+      const ayahData = await this.getAyah(s, a);
+      ayahs.push(ayahData);
+      a++;
       const total = await this.getSurahLength(s);
       if (a > total) {
         s += 1;
         a = 1;
-        if (s > 114) break;
       }
-      const ayahData = await this.getAyah(s, a);
-      ayahs.push(ayahData);
-      a++;
     }
 
-    const lastTotal = await this.getSurahLength(s);
-    let nextSurah = s;
-    let nextAyah = a;
-    if (a > lastTotal) { nextSurah = s + 1; nextAyah = 1; }
-
-    return { ayahs, nextSurah, nextAyah };
+    return {
+      ayahs,
+      nextSurah: s > 114 ? 114 : s,
+      nextAyah: a,
+    };
   },
 
   /** Check if today is Friday */

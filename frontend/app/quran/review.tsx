@@ -60,9 +60,11 @@ export default function MorningReviewScreen() {
     if (!url) return;
     try {
       await soundRef.current?.unloadAsync();
-      setPlayingKey(key);
+      soundRef.current = null;
+      // setPlayingKey AFTER successful sound creation to avoid wrong button animation
       const { sound } = await Audio.Sound.createAsync({ uri: url }, { shouldPlay: true });
       soundRef.current = sound;
+      setPlayingKey(key);
       sound.setOnPlaybackStatusUpdate((s) => {
         if (s.isLoaded && s.didJustFinish) { setPlayingKey(null); sound.unloadAsync(); }
       });
