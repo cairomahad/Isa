@@ -10,7 +10,25 @@ Backend: FastAPI на Railway. БД: Supabase (PostgreSQL).
 - DB: Supabase (kmhhazpyalpjwspjxzry.supabase.co)
 - Backend URL: https://tazakkur-production-c8c9.up.railway.app
 
-## Что реализовано (Февраль 2026)
+## Что реализовано (Февраль 2026, последнее обновление)
+
+### Задачи 1–11 (базовые улучшения)
+[описание выше]
+
+### Умма — Исламская социальная лента
+- **Backend**: 7 endpoints — GET /api/umma/feed, POST /api/umma/post, POST /like, DELETE, POST /report, GET /admin/umma/reports, GET migration-sql
+- **Проверка прав**: пользователи могут публиковать только после завершения fard_shafi или fard_hanafi курса
+- **ummaStore.ts**: Zustand с оптимистичным UI для лайков, пагинацией, checkCanPost
+- **PostCard.tsx**: FadeIn+SlideUp анимация, bounce на лайке, 3 типа (text/quote/question), арабский текст для цитат
+- **NewPostModal.tsx**: слайд-ап модалка, выбор типа, поля для цитат, валидация
+- **umma.tsx**: FlatList лента, FAB кнопка, lock-баннер для незавершивших курс, pull-to-refresh, пагинация
+- **_layout.tsx**: центральная золотая кнопка "Умма" поднята на 18px над таббаром
+- **admin/umma-reports.tsx**: модерация жалоб с кнопкой "Скрыть пост"
+
+### ВАЖНО: Создать таблицы в Supabase
+Открыть: https://supabase.com/dashboard/project/kmhhazpyalpjwspjxzry/editor
+Выполнить SQL из файла: /app/backend/umma_migration.sql
+Или получить через: GET /api/admin/umma/migration-sql
 
 ### Задача 1 — YouTube видеоуроки
 - manage-lessons.tsx: убрана загрузка файлов, добавлено поле YouTube URL

@@ -169,6 +169,20 @@ export default function AdminPanel() {
 
           <TouchableOpacity
             style={styles.menuItem}
+            onPress={() => router.push('/admin/umma-reports')}
+          >
+            <View style={styles.menuIconContainer}>
+              <Ionicons name="flag" size={24} color={Colors.error} />
+            </View>
+            <View style={styles.menuContent}>
+              <Text style={styles.menuTitle}>Жалобы Умма</Text>
+              <Text style={styles.menuSubtitle}>Модерация публичной ленты</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
             onPress={() => router.push('/admin/manage-quiz')}
           >
             <View style={styles.menuIconContainer}>

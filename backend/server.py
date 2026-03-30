@@ -2134,6 +2134,283 @@ async def delete_hadith(hadith_id: str):
         logger.error(f"Error deleting hadith: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ════════════════════════════════════════════════════
+# UMMA — Islamic Social Feed
+# ════════════════════════════════════════════════════
+
+class CreatePostRequest(BaseModel):
+    user_id: str
+    type: str = "text"  # text | quote | question
+    body: str
+    arabic_text: Optional[str] = None
+    source: Optional[str] = None
+
+
+class ReportPostRequest(BaseModel):
+    user_id: str
+    reason: str
+
+
+async def _check_can_post(user_id: str) -> bool:
+    """Check if user completed fard_shafi or fard_hanafi course."""
+    try:
+        user_resp = supabase.table('users').select('telegram_id').eq('id', user_id).execute()
+        if not user_resp.data:
+            return False
+        telegram_id = user_resp.data[0].get('telegram_id')
+        if not telegram_id:
+            return False
+
+        for cat in ['fard_shafi', 'fard_hanafi']:
+            total_resp = supabase.table('video_lessons').select('id', count='exact').eq('category', cat).execute()
+            total = total_resp.count or 0
+            if total == 0:
+                continue
+            prog = supabase.table('course_progress').select('current_lesson').eq('telegram_id', telegram_id).eq('category', cat).execute()
+            if prog.data and prog.data[0].get('current_lesson', 0) > total:
+                return True
+    except Exception as e:
+        logger.warning(f"_check_can_post error: {e}")
+    return False
+
+
+@api_router.get("/umma/feed")
+async def get_umma_feed(page: int = 1, limit: int = 20, user_id: str = ""):
+    """Get Umma feed with pagination and is_liked flag."""
+    try:
+        offset = (page - 1) * limit
+        posts_resp = supabase.table('umma_posts') \
+            .select('*, users!inner(display_name, first_name, username)') \
+            .eq('is_hidden', False) \
+            .order('created_at', desc=True) \
+            .range(offset, offset + limit - 1) \
+            .execute()
+
+        posts = posts_resp.data or []
+
+        # Build liked set for this user
+        liked_set: set = set()
+        if user_id and posts:
+            post_ids = [p['id'] for p in posts]
+            try:
+                likes_resp = supabase.table('umma_likes') \
+                    .select('post_id') \
+                    .eq('user_id', user_id) \
+                    .in_('post_id', post_ids) \
+                    .execute()
+                liked_set = {l['post_id'] for l in (likes_resp.data or [])}
+            except Exception:
+                pass
+
+        result = []
+        for p in posts:
+            user_data = p.get('users') or {}
+            author_name = (
+                user_data.get('display_name') or
+                user_data.get('first_name') or
+                user_data.get('username') or
+                'Студент'
+            )
+            result.append({
+                'id': p['id'],
+                'user_id': p['user_id'],
+                'author_name': author_name,
+                'type': p.get('type', 'text'),
+                'body': p.get('body', ''),
+                'arabic_text': p.get('arabic_text'),
+                'source': p.get('source'),
+                'likes_count': p.get('likes_count', 0),
+                'is_liked': p['id'] in liked_set,
+                'created_at': str(p.get('created_at', '')),
+            })
+
+        return {
+            "posts": result,
+            "page": page,
+            "has_more": len(posts) == limit,
+        }
+    except Exception as e:
+        logger.error(f"Error fetching umma feed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/umma/post")
+async def create_umma_post(request: CreatePostRequest):
+    """Create a new Umma post. Requires course completion."""
+    try:
+        # Permission check
+        can_post = await _check_can_post(request.user_id)
+        if not can_post:
+            raise HTTPException(
+                status_code=403,
+                detail="Завершите Шафиитский или Ханафитский мазхаб, чтобы публиковать посты"
+            )
+
+        if len(request.body.strip()) < 3:
+            raise HTTPException(status_code=400, detail="Текст поста слишком короткий")
+        if len(request.body) > 1000:
+            raise HTTPException(status_code=400, detail="Текст не должен превышать 1000 символов")
+        if request.type not in ('text', 'quote', 'question'):
+            raise HTTPException(status_code=400, detail="Неверный тип поста")
+
+        insert_data = {
+            'user_id': request.user_id,
+            'type': request.type,
+            'body': request.body.strip(),
+            'arabic_text': request.arabic_text,
+            'source': request.source,
+            'likes_count': 0,
+            'is_hidden': False,
+        }
+
+        resp = supabase.table('umma_posts').insert(insert_data).select(
+            '*, users!inner(display_name, first_name, username)'
+        ).execute()
+
+        if not resp.data:
+            raise HTTPException(status_code=500, detail="Failed to create post")
+
+        p = resp.data[0]
+        user_data = p.get('users') or {}
+        return {
+            'id': p['id'],
+            'user_id': p['user_id'],
+            'author_name': user_data.get('display_name') or user_data.get('first_name') or 'Студент',
+            'type': p.get('type', 'text'),
+            'body': p.get('body', ''),
+            'arabic_text': p.get('arabic_text'),
+            'source': p.get('source'),
+            'likes_count': 0,
+            'is_liked': False,
+            'created_at': str(p.get('created_at', '')),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating post: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/umma/post/{post_id}/like")
+async def toggle_umma_like(post_id: str, user_id: str = Query(...)):
+    """Toggle like on a post."""
+    try:
+        # Check if already liked
+        existing = supabase.table('umma_likes') \
+            .select('id') \
+            .eq('post_id', post_id) \
+            .eq('user_id', user_id) \
+            .execute()
+
+        if existing.data:
+            # Unlike
+            supabase.table('umma_likes').delete() \
+                .eq('post_id', post_id).eq('user_id', user_id).execute()
+            liked = False
+        else:
+            # Like
+            supabase.table('umma_likes').insert({'post_id': post_id, 'user_id': user_id}).execute()
+            liked = True
+
+        # Recount likes
+        count_resp = supabase.table('umma_likes') \
+            .select('id', count='exact') \
+            .eq('post_id', post_id).execute()
+        new_count = count_resp.count or 0
+
+        supabase.table('umma_posts').update({'likes_count': new_count}).eq('id', post_id).execute()
+
+        return {"liked": liked, "likes_count": new_count}
+    except Exception as e:
+        logger.error(f"Error toggling like: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.delete("/umma/post/{post_id}")
+async def delete_umma_post(post_id: str, user_id: str = Query(...)):
+    """Delete a post. Only owner or admin."""
+    try:
+        post = supabase.table('umma_posts').select('user_id').eq('id', post_id).single().execute()
+        if not post.data:
+            raise HTTPException(status_code=404, detail="Post not found")
+
+        # Check owner or admin
+        user_resp = supabase.table('users').select('role').eq('id', user_id).single().execute()
+        role = user_resp.data.get('role', 'student') if user_resp.data else 'student'
+
+        if post.data['user_id'] != user_id and role != 'admin':
+            raise HTTPException(status_code=403, detail="Нет прав для удаления")
+
+        supabase.table('umma_posts').delete().eq('id', post_id).execute()
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting post: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/umma/post/{post_id}/report")
+async def report_umma_post(post_id: str, request: ReportPostRequest):
+    """Report a post. Auto-hide on 3+ reports."""
+    try:
+        supabase.table('umma_reports').insert({
+            'post_id': post_id,
+            'reporter_id': request.user_id,
+            'reason': request.reason,
+        }).execute()
+
+        # Count reports
+        count_resp = supabase.table('umma_reports') \
+            .select('id', count='exact') \
+            .eq('post_id', post_id).execute()
+        report_count = count_resp.count or 0
+
+        if report_count >= 3:
+            supabase.table('umma_posts').update({'is_hidden': True}).eq('id', post_id).execute()
+            return {"success": True, "hidden": True, "message": "Пост скрыт после проверки"}
+
+        return {"success": True, "hidden": False}
+    except Exception as e:
+        logger.error(f"Error reporting post: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/umma/can-post")
+async def can_user_post(user_id: str = Query(...)):
+    """Check if user is allowed to create posts."""
+    can = await _check_can_post(user_id)
+    return {"can_post": can}
+
+
+@api_router.get("/admin/umma/reports")
+async def get_umma_reports(user_id: str = Query(...)):
+    """Admin: list reported posts."""
+    try:
+        user_resp = supabase.table('users').select('role').eq('id', user_id).single().execute()
+        if not user_resp.data or user_resp.data.get('role') != 'admin':
+            raise HTTPException(status_code=403, detail="Только для администраторов")
+
+        reports = supabase.table('umma_reports') \
+            .select('*, umma_posts(body, user_id, is_hidden)') \
+            .order('created_at', desc=True) \
+            .limit(100) \
+            .execute()
+
+        return {"reports": reports.data or []}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/admin/umma/migration-sql")
+async def get_umma_migration_sql():
+    """Returns the SQL needed to create Umma tables."""
+    sql = open(Path(__file__).parent / 'umma_migration.sql').read() if (Path(__file__).parent / 'umma_migration.sql').exists() else "File not found"
+    return {"sql": sql, "instructions": "Выполните этот SQL в Supabase SQL Editor: https://supabase.com/dashboard/project/kmhhazpyalpjwspjxzry/editor"}
+
 # Include the router in the main app
 app.include_router(api_router)
 

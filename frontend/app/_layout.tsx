@@ -146,6 +146,7 @@ export default function RootLayout() {
         <Stack.Screen name="quran/lesson" options={{ presentation: 'card' }} />
         <Stack.Screen name="quran/review" options={{ presentation: 'card' }} />
         <Stack.Screen name="quran/progress" options={{ presentation: 'card' }} />
+        <Stack.Screen name="admin/umma-reports" options={{ presentation: 'card' }} />
       </Stack>
     </ThemeProvider>
   );
