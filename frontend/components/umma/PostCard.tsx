@@ -1,28 +1,99 @@
+/**
+ * PostCard — адаптация PostAdvance.js + Post.js из донора
+ * Изменено: expo-router вместо Navigation, Colors вместо GlobalStyles,
+ *            нет изображений (text-only), нет комментариев/share,
+ *            добавлены: типы постов, арабский текст, жалоба
+ */
 import {
-  View, Text, StyleSheet, TouchableOpacity, Alert, Animated,
+  View, Text, StyleSheet, Pressable, Dimensions,
 } from 'react-native';
-import { useRef, useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useColors } from '../../contexts/ThemeContext';
-import { Shadows } from '../../constants/colors';
+import PressEffect from './PressEffect';
 import { UmmaPost } from '../../store/ummaStore';
 
-const API = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://tazakkur-production-c8c9.up.railway.app';
+const { width } = Dimensions.get('window');
 
-function formatTime(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
-  if (diff < 60) return 'только что';
-  if (diff < 3600) return `${Math.floor(diff / 60)}м`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}ч`;
-  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+/** timeDifference — точная копия из donor: utils/helperFunctions.js (русская локаль) */
+export function timeDifference(timeString: string): string {
+  const currentDate = new Date();
+  const previousDate = new Date(timeString);
+  const diff = currentDate.getTime() - previousDate.getTime();
+
+  const minute = 60 * 1000;
+  const hour   = minute * 60;
+  const day    = hour * 24;
+  const week   = day * 7;
+  const month  = day * 30;
+  const year   = day * 365;
+
+  if (diff < minute)  return `${Math.round(diff / 1000)} сек. назад`;
+  if (diff < hour)    return `${Math.round(diff / minute)} мин. назад`;
+  if (diff < day)     return `${Math.round(diff / hour)} ч. назад`;
+  if (diff < week)    return `${Math.round(diff / day)} дн. назад`;
+  if (diff < month)   return `${Math.round(diff / week)} нед. назад`;
+  if (diff < year)    return `${Math.round(diff / month)} мес. назад`;
+  return `${Math.round(diff / year)} г. назад`;
 }
 
-const TYPE_CONFIG = {
-  text: { label: 'Пост', color: '#2E7D5B', bg: '#F0F8F4' },
-  quote: { label: 'Цитата', color: '#C4963A', bg: '#FFF8EE' },
-  question: { label: 'Вопрос', color: '#6B7280', bg: '#F3F4F6' },
+/** FooterButton — аналог FooterButton из PostAdvance.js */
+function FooterButton({
+  icon, count, onPress, color,
+}: {
+  icon: string; count?: number; onPress: () => void; color?: string;
+}) {
+  const Colors = useColors();
+  return (
+    <PressEffect>
+      <Pressable style={styles.footerIcon} onPress={onPress}>
+        <View style={[styles.footerIconBg, { backgroundColor: Colors.cardDark }]}>
+          <Ionicons name={icon as any} size={20} color={color || Colors.textSecondary} />
+          {count !== undefined && (
+            <Text style={[styles.footerCount, { color: color || Colors.textSecondary }]}>
+              {count}
+            </Text>
+          )}
+        </View>
+      </Pressable>
+    </PressEffect>
+  );
+}
+
+/** Avatar — аналог Avatar из PostAdvance.js */
+function Avatar({ name, gradient }: { name: string; gradient: [string, string] }) {
+  const initials = name.slice(0, 2).toUpperCase();
+  return (
+    <LinearGradient
+      colors={gradient}
+      start={{ x: 0, y: 1 }}
+      end={{ x: 1, y: 0 }}
+      style={styles.avatarGradient}
+    >
+      <Text style={styles.avatarText}>{initials}</Text>
+    </LinearGradient>
+  );
+}
+
+// Градиенты для аватаров (как разные цвета в донорском приложении)
+const GRADIENTS: [string, string][] = [
+  ['#7A40F8', '#4cc9f0'],
+  ['#C4963A', '#E8C97A'],
+  ['#2E7D5B', '#4CAF7D'],
+  ['#f72585', '#C459F4'],
+  ['#C44536', '#fdac1d'],
+];
+
+function getGradient(name: string): [string, string] {
+  const idx = name.charCodeAt(0) % GRADIENTS.length;
+  return GRADIENTS[idx];
+}
+
+const TYPE_ICONS: Record<string, string> = {
+  text: 'document-text',
+  quote: 'bookmarks',
+  question: 'help-circle',
 };
 
 interface Props {
@@ -32,193 +103,236 @@ interface Props {
   onDelete?: (postId: string) => void;
   currentUserId: string;
   isOwner: boolean;
-  index?: number;
 }
 
-export default function PostCard({ post, onLike, onReport, onDelete, currentUserId, isOwner, index = 0 }: Props) {
+export default function PostCard({
+  post, onLike, onReport, onDelete, currentUserId, isOwner,
+}: Props) {
   const Colors = useColors();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
+  const gradient = getGradient(post.author_name);
+  const isLiked = post.is_liked;
 
-  // Entrance animation
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  // Like bounce animation
-  const likeScale = useRef(new Animated.Value(1)).current;
+  function PostFooter() {
+    return (
+      <View style={styles.footerContainer}>
+        {/* Левая часть — аватар + имя+время (как в PostAdvance Avatar) */}
+        <PressEffect>
+          <View style={styles.authorRow}>
+            <Avatar name={post.author_name} gradient={gradient} />
+            <View style={styles.authorMeta}>
+              <Text style={styles.authorName} numberOfLines={1}>
+                {post.author_name}
+              </Text>
+              <Text style={styles.authorTime}>
+                {timeDifference(post.created_at)}
+              </Text>
+            </View>
+          </View>
+        </PressEffect>
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 350, delay: Math.min(index * 60, 300), useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 350, delay: Math.min(index * 60, 300), useNativeDriver: true }),
-    ]).start();
-  }, []);
-
-  const handleLike = () => {
-    // Bounce animation
-    Animated.sequence([
-      Animated.timing(likeScale, { toValue: 0.7, duration: 80, useNativeDriver: true }),
-      Animated.spring(likeScale, { toValue: 1.3, useNativeDriver: true, friction: 3 }),
-      Animated.spring(likeScale, { toValue: 1.0, useNativeDriver: true, friction: 5 }),
-    ]).start();
-    onLike(post.id);
-  };
-
-  const handleReport = () => {
-    Alert.alert('Пожаловаться', 'Выберите причину жалобы', [
-      {
-        text: 'Неподобающий контент',
-        onPress: async () => {
-          try {
-            await fetch(`${API}/api/umma/post/${post.id}/report`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ user_id: currentUserId, reason: 'inappropriate' }),
-            });
-            Alert.alert('Жалоба отправлена', 'Мы рассмотрим её в ближайшее время');
-          } catch {}
-        },
-      },
-      { text: 'Спам', onPress: async () => {
-        try {
-          await fetch(`${API}/api/umma/post/${post.id}/report`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: currentUserId, reason: 'spam' }),
-          });
-          Alert.alert('Жалоба отправлена');
-        } catch {}
-      }},
-      { text: 'Отмена', style: 'cancel' },
-    ]);
-  };
-
-  const handleDelete = () => {
-    Alert.alert('Удалить пост?', 'Это действие нельзя отменить', [
-      { text: 'Отмена', style: 'cancel' },
-      { text: 'Удалить', style: 'destructive', onPress: () => onDelete?.(post.id) },
-    ]);
-  };
-
-  const typeConf = TYPE_CONFIG[post.type] || TYPE_CONFIG.text;
-  const initials = post.author_name.slice(0, 2).toUpperCase();
+        {/* Правая часть — кнопки действий */}
+        <View style={styles.actionButtons}>
+          <FooterButton
+            icon={isLiked ? 'heart' : 'heart-outline'}
+            count={post.likes_count}
+            onPress={() => onLike(post.id)}
+            color={isLiked ? '#ef3e55' : Colors.textSecondary}
+          />
+          {isOwner && (
+            <FooterButton
+              icon="trash-outline"
+              onPress={() => onDelete?.(post.id)}
+              color={Colors.error}
+            />
+          )}
+          <FooterButton
+            icon="flag-outline"
+            onPress={() => onReport(post.id)}
+          />
+        </View>
+      </View>
+    );
+  }
 
   return (
-    <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={[styles.avatar, { backgroundColor: typeConf.color }]}>
-          <Text style={styles.avatarText}>{initials}</Text>
+    <View style={styles.card}>
+      {/* Тип-бейдж (аналог PostHeader с SVG в Post.js) */}
+      <View style={styles.typeBadgeRow}>
+        <View style={styles.typeBadge}>
+          <LinearGradient
+            colors={gradient}
+            start={{ x: 0, y: 1 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.typeBadgeGradient}
+          >
+            <Ionicons name={TYPE_ICONS[post.type] as any} size={12} color="#fff" />
+            <Text style={styles.typeBadgeText}>
+              {post.type === 'text' ? 'Пост' : post.type === 'quote' ? 'Цитата' : 'Вопрос'}
+            </Text>
+          </LinearGradient>
         </View>
-        <View style={styles.authorInfo}>
-          <Text style={styles.authorName}>{post.author_name}</Text>
-          <View style={styles.metaRow}>
-            <View style={[styles.typeBadge, { backgroundColor: typeConf.bg }]}>
-              <Text style={[styles.typeText, { color: typeConf.color }]}>{typeConf.label}</Text>
-            </View>
-            <Text style={styles.time}>{formatTime(post.created_at)}</Text>
-          </View>
-        </View>
-        {isOwner && (
-          <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn} data-testid="delete-post-btn" testID="delete-post-btn">
-            <Ionicons name="trash-outline" size={16} color={Colors.error} />
-          </TouchableOpacity>
-        )}
       </View>
 
-      {/* Body */}
+      {/* Тело поста */}
       <Text style={styles.body}>{post.body}</Text>
 
-      {/* Quote block */}
+      {/* Арабская цитата */}
       {post.type === 'quote' && post.arabic_text && (
         <View style={styles.quoteBlock}>
           <Text style={styles.arabicText}>{post.arabic_text}</Text>
-          {post.source && <Text style={styles.sourceText}>{post.source}</Text>}
+          {post.source && (
+            <Text style={styles.sourceText}>{post.source}</Text>
+          )}
         </View>
       )}
 
-      {/* Question badge */}
+      {/* Вопрос-индикатор */}
       {post.type === 'question' && (
-        <View style={styles.questionBadge}>
+        <View style={styles.questionRow}>
           <Ionicons name="help-circle" size={16} color={Colors.textSecondary} />
-          <Text style={styles.questionText}>Ожидает ответа от уммы</Text>
+          <Text style={styles.questionText}>Ожидает ответа уммы</Text>
         </View>
       )}
 
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Animated.View style={{ transform: [{ scale: likeScale }] }}>
-          <TouchableOpacity
-            style={[styles.likeBtn, post.is_liked && styles.likeBtnActive]}
-            onPress={handleLike}
-            data-testid="like-post-btn"
-            testID={`like-btn-${post.id}`}
-          >
-            <Ionicons
-              name={post.is_liked ? 'heart' : 'heart-outline'}
-              size={18}
-              color={post.is_liked ? '#E53E3E' : Colors.textSecondary}
-            />
-            <Text style={[styles.likeCount, post.is_liked && { color: '#E53E3E' }]}>
-              {post.likes_count}
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
-
-        <TouchableOpacity
-          onPress={handleReport}
-          style={styles.reportBtn}
-          data-testid="report-post-btn"
-          testID={`report-btn-${post.id}`}
-        >
-          <Ionicons name="flag-outline" size={16} color={Colors.textTertiary} />
-          <Text style={styles.reportText}>Жалоба</Text>
-        </TouchableOpacity>
-      </View>
-    </Animated.View>
+      {/* Footer — PostStats из PostAdvance.js */}
+      <PostFooter />
+    </View>
   );
 }
 
 const makeStyles = (Colors: any) => StyleSheet.create({
+  // Карточка — аналог PostAdvance контейнера
   card: {
-    backgroundColor: Colors.surface,
-    borderRadius: 20,
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    ...Shadows.card,
+    backgroundColor: Colors.cardDark,
+    borderRadius: 30,               // точно как в PostAdvance
+    marginHorizontal: 10,           // точно как в PostAdvance
+    marginBottom: 20,               // gap: 20 как в Feed.js
+    padding: 15,                    // как в Post.js
+    overflow: 'hidden',
   },
-  header: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12, gap: 10 },
-  avatar: { width: 42, height: 42, borderRadius: 21, justifyContent: 'center', alignItems: 'center' },
-  avatarText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
-  authorInfo: { flex: 1 },
-  authorName: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  typeBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-  typeText: { fontSize: 11, fontWeight: '600' },
-  time: { fontSize: 12, color: Colors.textTertiary },
-  deleteBtn: { padding: 6 },
-  body: { fontSize: 15, color: Colors.textPrimary, lineHeight: 24, marginBottom: 12 },
+  // Бейдж типа — заменяет SVG PostHeader из Post.js
+  typeBadgeRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  typeBadge: {
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  typeBadgeGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    gap: 4,
+  },
+  typeBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  // Тело поста
+  body: {
+    color: Colors.textPrimary,
+    fontSize: 15,
+    lineHeight: 24,
+    paddingHorizontal: 5,
+    paddingBottom: 12,
+  },
+  // Арабская цитата
   quoteBlock: {
-    backgroundColor: Colors.goldBackground || Colors.backgroundPage,
-    borderRadius: 12,
+    backgroundColor: Colors.backgroundPage,
+    borderRadius: 15,
     padding: 14,
+    marginHorizontal: 5,
+    marginBottom: 12,
     borderLeftWidth: 3,
     borderLeftColor: Colors.primary,
-    marginBottom: 12,
   },
   arabicText: {
-    fontSize: 24, color: Colors.textPrimary, textAlign: 'right',
-    lineHeight: 44, marginBottom: 8, fontWeight: '400',
+    fontSize: 24,
+    color: Colors.textPrimary,
+    textAlign: 'right',
+    lineHeight: 44,
+    marginBottom: 6,
   },
-  sourceText: { fontSize: 13, color: Colors.primary, fontWeight: '600', textAlign: 'right' },
-  questionBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: Colors.backgroundPage, borderRadius: 8, padding: 8, marginBottom: 12,
+  sourceText: {
+    fontSize: 13,
+    color: Colors.primary,
+    fontWeight: '600',
+    textAlign: 'right',
   },
-  questionText: { fontSize: 13, color: Colors.textSecondary, fontStyle: 'italic' },
-  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 10 },
-  likeBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 20, backgroundColor: Colors.backgroundPage },
-  likeBtnActive: { backgroundColor: '#FEE2E2' },
-  likeCount: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
-  reportBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 10 },
-  reportText: { fontSize: 13, color: Colors.textTertiary },
+  questionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 5,
+    marginBottom: 12,
+  },
+  questionText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  // Footer — аналог PostStats из PostAdvance.js
+  footerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  // Левая часть — Avatar (аналог Avatar из PostAdvance)
+  authorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarGradient: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  authorMeta: {
+    marginLeft: 8,
+  },
+  authorName: {
+    color: Colors.textPrimary,
+    fontWeight: 'bold',
+    fontSize: 14,
+    maxWidth: 120,
+  },
+  authorTime: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    fontWeight: 'bold',
+    marginTop: 1,
+  },
+  // Правая часть — кнопки (аналог FooterButton из PostAdvance)
+  actionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  footerIcon: {
+    margin: 3,
+  },
+  // Круглый контейнер кнопки — точно как в PostAdvance FooterButton
+  footerIconBg: {
+    padding: 9,
+    borderRadius: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  footerCount: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
 });

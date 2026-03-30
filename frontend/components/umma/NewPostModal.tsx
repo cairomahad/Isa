@@ -1,12 +1,27 @@
+/**
+ * NewPostModal — адаптация NewPostScreen.js из донора
+ * Изменено: Modal вместо Screen (expo-router), нет Camera/ImagePicker (text-only),
+ *            TypeScript, Colors вместо GlobalStyles, Supabase вместо FormData upload
+ * Сохранено: KeyboardAvoidingView, InputField-стиль, Button-стиль, ProgressOverlay-паттерн
+ */
 import {
-  View, Text, StyleSheet, Modal, TouchableOpacity,
-  TextInput, KeyboardAvoidingView, Platform, ScrollView,
-  ActivityIndicator, Alert, Animated,
+  View,
+  StyleSheet,
+  Dimensions,
+  KeyboardAvoidingView,
+  Pressable,
+  ScrollView,
+  TextInput,
+  Text,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Animated,
 } from 'react-native';
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '../../contexts/ThemeContext';
-import { Shadows } from '../../constants/colors';
 import { useUmmaStore, NewPostData } from '../../store/ummaStore';
 
 type PostType = 'text' | 'quote' | 'question';
@@ -192,13 +207,16 @@ export default function NewPostModal({ visible, userId, onClose }: Props) {
 }
 
 const makeStyles = (Colors: any) => StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  // Overlay — как background в NewPostScreen.js
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   dismissArea: { flex: 1 },
+
+  // Sheet — аналог rounded container в NewPostScreen.js
   sheet: {
-    backgroundColor: Colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
+    backgroundColor: Colors.backgroundPage,
+    borderTopLeftRadius: 30,        // как borderRadius: 30 в NewPostScreen
+    borderTopRightRadius: 30,
+    maxHeight: '92%',
     paddingHorizontal: 20,
     paddingTop: 8,
   },
@@ -213,21 +231,26 @@ const makeStyles = (Colors: any) => StyleSheet.create({
   },
   sheetTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
   closeBtn: { padding: 4 },
+
+  // Type selector
   typeRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   typeBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 5, paddingVertical: 10, borderRadius: 12,
-    backgroundColor: Colors.backgroundPage, borderWidth: 1.5, borderColor: Colors.border,
+    gap: 5, paddingVertical: 10, borderRadius: 20,
+    backgroundColor: Colors.cardDark,
+    borderWidth: 1.5, borderColor: Colors.border,
   },
   typeBtnActive: { borderColor: Colors.primary, backgroundColor: Colors.goldBackground || Colors.backgroundPage },
   typeBtnText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+
+  // InputField — аналог InputField из донора (но TextInput напрямую)
   bodyInput: {
-    backgroundColor: Colors.backgroundPage,
-    borderRadius: 14,
+    backgroundColor: Colors.cardDark,  // как primary300 в донор
+    borderRadius: 20,                   // как borderRadius: 30 в NewPostScreen
     padding: 14,
     fontSize: 15,
     color: Colors.textPrimary,
-    minHeight: 100,
+    minHeight: 120,
     borderWidth: 1,
     borderColor: Colors.border,
     marginBottom: 4,
@@ -239,15 +262,21 @@ const makeStyles = (Colors: any) => StyleSheet.create({
     minHeight: 80, marginBottom: 4,
   },
   sourceInput: {
-    backgroundColor: Colors.backgroundPage, borderRadius: 12, padding: 12,
-    fontSize: 14, color: Colors.textPrimary, borderWidth: 1, borderColor: Colors.border,
-    marginBottom: 16,
+    backgroundColor: Colors.cardDark,
+    borderRadius: 12, padding: 12,
+    fontSize: 14, color: Colors.textPrimary,
+    borderWidth: 1, borderColor: Colors.border, marginBottom: 16,
   },
+
+  // Button — аналог Button.js из донора
   submitBtn: {
-    flexDirection: 'row', backgroundColor: Colors.primary, borderRadius: 14,
-    padding: 16, alignItems: 'center', justifyContent: 'center',
-    gap: 8, marginTop: 8, ...Shadows.gold,
+    backgroundColor: Colors.primary,
+    borderRadius: 30,               // как в Button.js
+    padding: 16,
+    alignItems: 'center', justifyContent: 'center',
+    flexDirection: 'row', gap: 8,
+    marginTop: 8,
   },
   submitBtnDisabled: { backgroundColor: Colors.border },
-  submitText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  submitText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', letterSpacing: 0.5 },
 });
