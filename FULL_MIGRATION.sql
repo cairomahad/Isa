@@ -53,6 +53,10 @@ ALTER TABLE homeworks ADD COLUMN IF NOT EXISTS teacher_comment TEXT;
 
 
 -- ── Таблица zikr_list ─────────────────────────────────────────────────────
+-- ВАЖНО: сначала убрать NOT NULL с text_ru чтобы можно было вставлять зикры
+-- только с арабским текстом
+ALTER TABLE zikr_list ALTER COLUMN text_ru DROP NOT NULL;
+
 -- Добавить недостающие колонки для полноценного отображения зикров
 ALTER TABLE zikr_list ADD COLUMN IF NOT EXISTS arabic TEXT;
 ALTER TABLE zikr_list ADD COLUMN IF NOT EXISTS transliteration TEXT;
@@ -199,19 +203,18 @@ CREATE POLICY "reports_all"  ON umma_reports FOR ALL USING (true) WITH CHECK (tr
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- ── Зикры (zikr_list) ────────────────────────────────────────────────────
--- Обновить существующие записи или вставить новые
-INSERT INTO zikr_list (id, text_ru, arabic, transliteration, goal, reward_points, category, sort_order, created_at)
+INSERT INTO zikr_list (id, arabic, transliteration, goal, reward_points, category, sort_order, created_at)
 VALUES
-  (gen_random_uuid(), 'Субханаллах — Пречист Аллах', 'سُبْحَانَ اللهِ', 'Subhanallah', 33, 5, 'general', 1, now()),
-  (gen_random_uuid(), 'Альхамдулиллях — Хвала Аллаху', 'الْحَمْدُ لِلهِ', 'Alhamdulillah', 33, 5, 'general', 2, now()),
-  (gen_random_uuid(), 'Аллаху Акбар — Аллах Велик', 'اللهُ أَكْبَرُ', 'Allahu Akbar', 33, 5, 'general', 3, now()),
-  (gen_random_uuid(), 'Ля иляха илляллах — Нет бога кроме Аллаха', 'لَا إِلَهَ إِلَّا اللهُ', 'La ilaha illallah', 100, 10, 'general', 4, now()),
-  (gen_random_uuid(), 'АстагфируЛлах — Прошу прощения у Аллаха', 'أَسْتَغْفِرُ اللهَ', 'Astaghfirullah', 100, 10, 'general', 5, now()),
-  (gen_random_uuid(), 'Субханаллахи ва бихамдихи — Пречист Аллах и хвала Ему', 'سُبْحَانَ اللهِ وَبِحَمْدِهِ', 'Subhanallahi wa bihamdihi', 100, 10, 'morning', 6, now()),
-  (gen_random_uuid(), 'Субханаллахи ва бихамдихи субханаллахиль-азым', 'سُبْحَانَ اللهِ وَبِحَمْدِهِ سُبْحَانَ اللهِ الْعَظِيمِ', 'Subhanallahi wa bihamdihi subhanallahil-azim', 10, 15, 'morning', 7, now()),
-  (gen_random_uuid(), 'Хасбияллаху ля иляха илля ху — достаточно мне Аллаха', 'حَسْبِيَ اللهُ لَا إِلَهَ إِلَّا هُوَ عَلَيْهِ تَوَكَّلْتُ', 'Hasbiyallahu la ilaha illa hu', 7, 10, 'morning', 8, now()),
-  (gen_random_uuid(), 'Аллахумма салли ала Мухаммад — салават', 'اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ', 'Allahumma salli ala Muhammad', 10, 10, 'general', 9, now()),
-  (gen_random_uuid(), 'Ля хавля валя куввата илля биллях — нет силы кроме Аллаха', 'لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللهِ', 'La hawla wa la quwwata illa billah', 10, 10, 'evening', 10, now())
+  (gen_random_uuid(), 'سُبْحَانَ اللهِ', 'Subhanallah', 33, 5, 'general', 1, now()),
+  (gen_random_uuid(), 'الْحَمْدُ لِلهِ', 'Alhamdulillah', 33, 5, 'general', 2, now()),
+  (gen_random_uuid(), 'اللهُ أَكْبَرُ', 'Allahu Akbar', 33, 5, 'general', 3, now()),
+  (gen_random_uuid(), 'لَا إِلَهَ إِلَّا اللهُ', 'La ilaha illallah', 100, 10, 'general', 4, now()),
+  (gen_random_uuid(), 'أَسْتَغْفِرُ اللهَ', 'Astaghfirullah', 100, 10, 'general', 5, now()),
+  (gen_random_uuid(), 'سُبْحَانَ اللهِ وَبِحَمْدِهِ', 'Subhanallahi wa bihamdihi', 100, 10, 'morning', 6, now()),
+  (gen_random_uuid(), 'سُبْحَانَ اللهِ وَبِحَمْدِهِ سُبْحَانَ اللهِ الْعَظِيمِ', 'Subhanallahi wa bihamdihi subhanallahil-azim', 10, 15, 'morning', 7, now()),
+  (gen_random_uuid(), 'حَسْبِيَ اللهُ لَا إِلَهَ إِلَّا هُوَ عَلَيْهِ تَوَكَّلْتُ', 'Hasbiyallahu la ilaha illa hu', 7, 10, 'morning', 8, now()),
+  (gen_random_uuid(), 'اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ', 'Allahumma salli ala Muhammad', 10, 10, 'general', 9, now()),
+  (gen_random_uuid(), 'لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللهِ', 'La hawla wa la quwwata illa billah', 10, 10, 'evening', 10, now())
 ON CONFLICT DO NOTHING;
 
 

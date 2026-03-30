@@ -1810,17 +1810,19 @@ async def get_file(bucket: str, filename: str):
 async def get_zikr_list():
     """Get all zikr items from database"""
     try:
-        response = supabase.table('zikr_list').select('*').order('id').execute()
+        response = supabase.table('zikr_list').select('*').order('sort_order').execute()
         zikr_items = []
         for item in (response.data or []):
             zikr_items.append({
                 "id": str(item.get('id', '')),
-                "arabic": "",
-                "transliteration": "",
-                "translation": item.get('text_ru', ''),
-                "goal": 33,
-                "reward_points": 10,
-                "category": "daily",
+                "arabic":          item.get('arabic', ''),
+                "transliteration": item.get('transliteration', ''),
+                # translation: приоритет text_ru, иначе пустая строка
+                "translation":     item.get('text_ru') or item.get('translation', ''),
+                "goal":            item.get('goal', 33),
+                "reward_points":   item.get('reward_points', 5),
+                "category":        item.get('category', 'general'),
+                "sort_order":      item.get('sort_order', 0),
             })
         return {"zikr_items": zikr_items}
     except Exception as e:
