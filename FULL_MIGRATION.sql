@@ -170,14 +170,18 @@ ALTER TABLE umma_likes      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE umma_reports    ENABLE ROW LEVEL SECURITY;
 
 -- zikr_progress — открыт для чтения/записи через сервис
-CREATE POLICY IF NOT EXISTS "zikr_progress_all" ON zikr_progress FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "zikr_progress_all" ON zikr_progress;
+CREATE POLICY "zikr_progress_all" ON zikr_progress FOR ALL USING (true) WITH CHECK (true);
 
 -- achievements — только чтение для всех
-CREATE POLICY IF NOT EXISTS "achievements_select" ON achievements FOR SELECT USING (true);
+DROP POLICY IF EXISTS "achievements_select" ON achievements;
+CREATE POLICY "achievements_select" ON achievements FOR SELECT USING (true);
 
 -- user_achievements — только чтение для всех, запись через сервис
-CREATE POLICY IF NOT EXISTS "user_ach_select" ON user_achievements FOR SELECT USING (true);
-CREATE POLICY IF NOT EXISTS "user_ach_insert" ON user_achievements FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "user_ach_select" ON user_achievements;
+CREATE POLICY "user_ach_select" ON user_achievements FOR SELECT USING (true);
+DROP POLICY IF EXISTS "user_ach_insert" ON user_achievements;
+CREATE POLICY "user_ach_insert" ON user_achievements FOR INSERT WITH CHECK (true);
 
 -- umma_posts — чтение только не-скрытых постов
 DROP POLICY IF EXISTS "posts_select" ON umma_posts;
