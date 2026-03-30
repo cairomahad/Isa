@@ -153,7 +153,85 @@ export async function getScheduledPrayerNotifications() {
 }
 
 /**
- * Планирование уведомления о разблокировке нового урока (через 3 дня)
+ * Планирование ежедневных уведомлений для программы Хифза
+ */
+export async function scheduleQuranNotifications(
+  eveningHour: number,
+  morningHour: number
+): Promise<void> {
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') {
+      const { status: ns } = await Notifications.requestPermissionsAsync();
+      if (ns !== 'granted') return;
+    }
+
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('quran', {
+        name: 'Хифз Корана',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#C4963A',
+        sound: 'default',
+      });
+    }
+
+    // Cancel old quran notifications
+    const all = await Notifications.getAllScheduledNotificationsAsync();
+    for (const n of all) {
+      if (n.identifier.startsWith('quran-')) {
+        await Notifications.cancelScheduledNotificationAsync(n.identifier);
+      }
+    }
+
+    // Schedule evening lesson reminder
+    const eveningTrigger: any = { hour: eveningHour, minute: 0, repeats: true };
+    if (Platform.OS === 'android') eveningTrigger.channelId = 'quran';
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: 'quran-evening',
+      content: {
+        title: '🌙 Время вечернего урока Корана',
+        body: 'Продолжите изучение Корана. Новые аяты ждут вас!',
+        sound: 'default',
+        data: { type: 'quran-evening' },
+      },
+      trigger: eveningTrigger,
+    });
+
+    // Schedule morning review reminder
+    const morningTrigger: any = { hour: morningHour, minute: 0, repeats: true };
+    if (Platform.OS === 'android') morningTrigger.channelId = 'quran';
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: 'quran-morning',
+      content: {
+        title: '☀️ Время утреннего повторения',
+        body: 'Повторите выученные аяты, пока они свежи в памяти.',
+        sound: 'default',
+        data: { type: 'quran-morning' },
+      },
+      trigger: morningTrigger,
+    });
+
+    await AsyncStorage.setItem('quran_notifications_set', JSON.stringify({ eveningHour, morningHour }));
+  } catch (e) {
+    console.warn('Failed to schedule quran notifications:', e);
+  }
+}
+
+/**
+ * Отмена уведомлений программы Хифза
+ */
+export async function cancelQuranNotifications(): Promise<void> {
+  const all = await Notifications.getAllScheduledNotificationsAsync();
+  for (const n of all) {
+    if (n.identifier.startsWith('quran-')) {
+      await Notifications.cancelScheduledNotificationAsync(n.identifier);
+    }
+  }
+  await AsyncStorage.removeItem('quran_notifications_set');
+}
  */
 export async function scheduleLessonUnlockNotification(
   lessonTitle: string,

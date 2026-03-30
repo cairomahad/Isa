@@ -142,6 +142,10 @@ export default function RootLayout() {
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="lesson/[id]" options={{ presentation: 'card' }} />
         <Stack.Screen name="admin/index" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="quran/settings" options={{ presentation: 'card' }} />
+        <Stack.Screen name="quran/lesson" options={{ presentation: 'card' }} />
+        <Stack.Screen name="quran/review" options={{ presentation: 'card' }} />
+        <Stack.Screen name="quran/progress" options={{ presentation: 'card' }} />
       </Stack>
     </ThemeProvider>
   );
