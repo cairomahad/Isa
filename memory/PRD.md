@@ -80,3 +80,21 @@ Backend: FastAPI на Railway. БД: Supabase (PostgreSQL).
 1. Задеплоить backend на Railway (server.py изменён)
 2. EAS Build для тестирования react-native-volume-manager
 3. Обновить profile.tsx, quran.tsx, prayers.tsx на useColors()
+
+## Хифз Корана — план интеграции (Март 2026)
+Подробное руководство: `/app/HIFZ_INTEGRATION_GUIDE.md`
+
+### Шаги интеграции:
+1. SQL в Supabase — создать таблицы `quran_program` и `quran_progress`
+2. Backend — добавить `/api/quran/*` эндпоинты в `server.py`
+3. Frontend — переписать `QuranService.ts` (API вместо прямого Supabase)
+4. Frontend — обновить `lesson.tsx` (текст с API + правильный playAudio)
+5. Frontend — обновить `review.tsx` (Panel A / Panel B логика)
+6. Frontend — обновить `quran.tsx` (дашборд с прогрессом)
+
+### Ключевые особенности донорского кода (cairomahad/Isa):
+- Идентификация: user_id (Supabase UUID), а не telegram_id
+- Аудио CDN: everyayah.com/data/Abdul_Basit_Murattal_192kbps/
+- Panel A: < 25 аятов — всё сплошным списком
+- Panel B: ≥ 25 аятов — вчерашние + блок по 25 с ротацией каждый день
+- Очки: +10 за каждый аят в уроке, +5 за повторение
