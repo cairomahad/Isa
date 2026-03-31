@@ -1067,6 +1067,54 @@ async def review_homework(request: ReviewHomeworkRequest):
 
 
 # ========== ADMIN API ==========
+@api_router.get("/home/data")
+async def get_home_data(user_id: str = Query(...), city: str = Query("moscow")):
+    """Combined home screen data — one request instead of 3"""
+    try:
+        import asyncio
+
+        # Parallel: hadith + prayers + user points
+        async def fetch_hadith():
+            try:
+                count_r = supabase.table('hadiths').select('id', count='exact').execute()
+                total = count_r.count or 0
+                if total == 0: return None
+                offset = random.randint(0, max(0, total - 1))
+                r = supabase.table('hadiths').select('*').range(offset, offset).execute()
+                if r.data:
+                    d = r.data[0]
+                    return {'id': str(d.get('id', '')), 'russian_text': d.get('text_ru', ''), 'text_ru': d.get('text_ru', '')}
+            except Exception: pass
+            return None
+
+        async def fetch_prayers():
+            try:
+                r = supabase.table('prayer_times').select('*').eq('city_slug', city).execute()
+                if r.data: return r.data[0]
+            except Exception: pass
+            return None
+
+        async def fetch_user_points():
+            try:
+                r = supabase.table('users').select('points').eq('id', user_id).execute()
+                if r.data: return r.data[0].get('points', 0)
+            except Exception: pass
+            return 0
+
+        hadith, prayers, points = await asyncio.gather(
+            fetch_hadith(), fetch_prayers(), fetch_user_points()
+        )
+
+        return {
+            "hadith": hadith,
+            "prayers": prayers,
+            "user_points": points,
+        }
+    except Exception as e:
+        logger.error(f"home/data error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @api_router.get("/admin/stats")
 async def get_admin_stats():
     """Get admin dashboard statistics"""
@@ -1193,17 +1241,23 @@ async def get_pending_questions(status: str = Query("pending")):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class AnswerQuestionRequest(BaseModel):
+    question_id: str
+    answer: str
+    is_public: bool = False
+
+
 @api_router.post("/admin/answer-question")
-async def answer_question(question_id: str, answer: str, is_public: bool = False):
+async def answer_question(req: AnswerQuestionRequest):
     """Admin: Answer a student's question"""
     try:
         update_data = {
             'status': 'answered',
-            'answer': answer,
+            'answer': req.answer,
             'answered_at': datetime.now().isoformat(),
-            'is_public': is_public,
+            'is_public': req.is_public,
         }
-        response = supabase.table('sheikh_questions').update(update_data).eq('id', question_id).execute()
+        response = supabase.table('sheikh_questions').update(update_data).eq('id', req.question_id).execute()
         if not response.data:
             raise HTTPException(status_code=404, detail="Question not found")
         return {"success": True, "message": "Ответ отправлен"}
@@ -1314,48 +1368,47 @@ async def get_surahs():
 
 @api_router.get("/quran/program")
 async def get_quran_program(user_id: str = Query(...)):
-    """Get user's Quran learning program"""
+    """Get user's Quran learning program (by user_id)"""
     try:
-        # Get user's telegram_id
-        user_response = supabase.table('users').select('telegram_id').eq('id', user_id).execute()
-        
-        if not user_response.data or len(user_response.data) == 0:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        telegram_id = user_response.data[0].get('telegram_id')
-        
-        # Get user's program
-        program_response = supabase.table('quran_program').select('*').eq('telegram_id', telegram_id).execute()
-        
-        if not program_response.data or len(program_response.data) == 0:
-            # Create default program
-            return {
-                "has_program": False,
-                "current_surah": 114,  # Start with short surahs
-                "current_ayah": 1,
-                "study_week": 1,
-            }
-        
+        # Try by user_id first (new users), fallback to telegram_id (legacy)
+        program_response = supabase.table('quran_program').select('*').eq('user_id', user_id).execute()
+
+        if not program_response.data:
+            # Legacy fallback: get telegram_id
+            user_response = supabase.table('users').select('telegram_id').eq('id', user_id).execute()
+            telegram_id = user_response.data[0].get('telegram_id') if user_response.data else None
+            if telegram_id:
+                program_response = supabase.table('quran_program').select('*').eq('telegram_id', telegram_id).execute()
+
+        if not program_response.data:
+            return {"has_program": False, "current_surah": 114, "current_ayah": 1, "study_week": 1}
+
         program = program_response.data[0]
-        
-        # Get learned ayahs count
-        progress_response = supabase.table('quran_progress').select('*', count='exact').eq('telegram_id', telegram_id).execute()
-        learned_count = progress_response.count or 0
-        
-        # Get reviews due today
-        today = datetime.now().strftime('%Y-%m-%d')
-        reviews_response = supabase.table('quran_reviews').select('*').eq('telegram_id', telegram_id).eq('due_date', today).eq('completed', False).execute()
-        reviews_due = reviews_response.data or []
-        
+
+        # Progress counts
+        prog_id = program.get('id')
+        learned_count = 0
+        reviews_due = 0
+        try:
+            user_response = supabase.table('users').select('telegram_id').eq('id', user_id).execute()
+            telegram_id = user_response.data[0].get('telegram_id') if user_response.data else None
+            if telegram_id:
+                pc = supabase.table('quran_progress').select('id', count='exact').eq('telegram_id', telegram_id).execute()
+                learned_count = pc.count or 0
+                today = datetime.now().strftime('%Y-%m-%d')
+                rc = supabase.table('quran_reviews').select('id', count='exact').eq('telegram_id', telegram_id).eq('due_date', today).eq('completed', False).execute()
+                reviews_due = rc.count or 0
+        except Exception:
+            pass
+
         return {
             "has_program": True,
             "current_surah": program.get('current_surah', 114),
             "current_ayah": program.get('current_ayah', 1),
             "study_week": program.get('study_week', 1),
             "learned_count": learned_count,
-            "reviews_due_today": len(reviews_due),
+            "reviews_due_today": reviews_due,
             "last_lesson_date": program.get('last_lesson_date'),
-            "last_review_date": program.get('last_review_date'),
         }
         
     except HTTPException:
@@ -2408,19 +2461,24 @@ async def create_umma_post(request: CreatePostRequest):
             'is_hidden': False,
         }
 
-        resp = supabase.table('umma_posts').insert(insert_data).select(
-            '*, users!inner(display_name, first_name, username)'
-        ).execute()
+        resp = supabase.table('umma_posts').insert(insert_data).execute()
 
         if not resp.data:
             raise HTTPException(status_code=500, detail="Failed to create post")
 
         p = resp.data[0]
-        user_data = p.get('users') or {}
+        # Fetch author name separately
+        author_name = 'Студент'
+        try:
+            u = supabase.table('users').select('display_name, first_name').eq('id', p['user_id']).execute()
+            if u.data:
+                author_name = u.data[0].get('display_name') or u.data[0].get('first_name') or 'Студент'
+        except Exception:
+            pass
         return {
             'id': p['id'],
             'user_id': p['user_id'],
-            'author_name': user_data.get('display_name') or user_data.get('first_name') or 'Студент',
+            'author_name': author_name,
             'type': p.get('type', 'text'),
             'body': p.get('body', ''),
             'arabic_text': p.get('arabic_text'),

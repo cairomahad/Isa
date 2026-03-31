@@ -80,7 +80,7 @@ export default function AdminReviewScreen() {
       const body = type === 'homework'
         ? { submission_id: selectedItem.id, grade: parseInt(grade), comment }
         : { question_id: selectedItem.id, answer: comment, is_public: isPublic };
-      
+
       const response = await fetch(`${backendUrl}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

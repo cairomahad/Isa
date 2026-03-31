@@ -9,6 +9,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Colors, Shadows } from '../../constants/colors';
 import { useAuthStore } from '../../store/authStore';
 
+import { Cache, TTL } from '../../services/cache';
+
 const API = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://tazakkur-production-c8c9.up.railway.app';
 
 type Question = {
@@ -83,9 +85,13 @@ export default function QAScreen() {
 
   const fetchPublicQuestions = useCallback(async () => {
     try {
+      const cached = await Cache.get<Question[]>('cache_public_qa', TTL.PUBLIC_QA);
+      if (cached) { setPublicQuestions(cached); return; }
       const r = await fetch(`${API}/api/qa/public`);
       const d = await r.json();
-      setPublicQuestions(d.questions || []);
+      const qs = d.questions || [];
+      setPublicQuestions(qs);
+      await Cache.set('cache_public_qa', qs);
     } catch (e) { console.warn('fetchPublicQuestions error', e); }
   }, []);
 

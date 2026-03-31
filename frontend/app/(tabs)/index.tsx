@@ -12,6 +12,8 @@ import { useColors } from '../../contexts/ThemeContext';
 import { Shadows } from '../../constants/colors';
 import { CITIES } from '../../constants/cities';
 
+import { Cache, TTL } from '../../services/cache';
+
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://tazakkur-production-c8c9.up.railway.app';
 
 const PRAYER_LIST = [
@@ -76,30 +78,48 @@ export default function HomeScreen() {
   const [hadithLoading, setHadithLoading] = useState(true);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (forceRefresh = false) => {
     const citySlug = CITIES.find(c => c.label === selectedCity)?.slug || 'moscow';
+    const today = new Date().toISOString().split('T')[0];
+    const hadithKey = `cache_daily_hadith_${today}`;
+    const prayerKey = `cache_prayers_${citySlug}_${today}`;
+
     try {
-      const [prayerRes, hadithRes, lbRes] = await Promise.allSettled([
-        fetch(`${API_URL}/api/prayer-times?city=${citySlug}`),
-        fetch(`${API_URL}/api/hadith/daily`),
-        fetch(`${API_URL}/api/leaderboard?limit=3`),
-      ]);
-      if (prayerRes.status === 'fulfilled' && prayerRes.value.ok) {
-        const d = await prayerRes.value.json();
-        setPrayerTimes(d);
-        setNextPrayer(getNextPrayer(d));
+      // Try cache first (unless force refresh)
+      if (!forceRefresh) {
+        const [cachedHadith, cachedPrayers] = await Promise.all([
+          Cache.get<Hadith>(hadithKey, TTL.HADITH_DAILY),
+          Cache.get<PrayerData>(prayerKey, TTL.PRAYERS),
+        ]);
+        if (cachedHadith) setHadith(cachedHadith);
+        if (cachedPrayers) { setPrayerTimes(cachedPrayers); setNextPrayer(getNextPrayer(cachedPrayers)); }
+        if (cachedHadith && cachedPrayers) { setHadithLoading(false); }
       }
-      if (hadithRes.status === 'fulfilled' && hadithRes.value.ok) {
-        const d = await hadithRes.value.json();
-        setHadith(d.russian_text || d.text_ru ? d : null);
+
+      // One combined request
+      const res = await fetch(`${API_URL}/api/home/data?user_id=${user?.id || ''}&city=${citySlug}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.hadith) {
+          setHadith(data.hadith);
+          await Cache.set(hadithKey, data.hadith);
+        }
+        if (data.prayers) {
+          setPrayerTimes(data.prayers);
+          setNextPrayer(getNextPrayer(data.prayers));
+          await Cache.set(prayerKey, data.prayers);
+        }
       }
-      if (lbRes.status === 'fulfilled' && lbRes.value.ok) {
-        const d = await lbRes.value.json();
-        setLeaderboard(d.leaderboard || []);
+
+      // Leaderboard separately (no cache needed, small request)
+      const lbRes = await fetch(`${API_URL}/api/leaderboard?limit=3`);
+      if (lbRes.ok) {
+        const lb = await lbRes.json();
+        setLeaderboard(lb.leaderboard || []);
       }
     } catch (_) {}
     finally { setHadithLoading(false); }
-  }, [selectedCity]);
+  }, [selectedCity, user?.id]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -107,7 +127,7 @@ export default function HomeScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchData();
+    await fetchData(true);  // force refresh clears cache
     setRefreshing(false);
   }, [fetchData]);
 
@@ -181,7 +201,8 @@ export default function HomeScreen() {
         <View style={styles.quickActions}>
           {[
             { icon: 'radio-button-on', label: 'Зикр',     route: '/(tabs)/zikr',    testID: 'qa-zikr' },
-            { icon: 'book',            label: 'Хифз',     route: '/(tabs)/quran',   testID: 'qa-hifz' },
+            { icon: 'book-outline',    label: 'Хифз',     route: '/(tabs)/quran',   testID: 'qa-hifz' },
+            { icon: 'play-circle',     label: 'Уроки',    route: '/(tabs)/lessons', testID: 'qa-lessons' },
             { icon: 'chatbubbles',     label: 'Спросить', route: '/(tabs)/qa',      testID: 'qa-ask'  },
             { icon: 'library',         label: 'Хадисы',   route: '/(tabs)/hadiths', testID: 'qa-hadiths' },
           ].map(item => (

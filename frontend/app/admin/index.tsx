@@ -1,5 +1,5 @@
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Dimensions,
 } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Shadows } from '../../constants/colors';
 import { useAuthStore } from '../../store/authStore';
+import { Cache } from '../../services/cache';
 
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
@@ -204,6 +205,26 @@ export default function AdminPanel() {
               <Text style={styles.menuSubtitle}>Управление ежедневным контентом</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Cache Management */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Кэш</Text>
+          <TouchableOpacity
+            style={[styles.menuItem, { borderLeftWidth: 3, borderLeftColor: Colors.error }]}
+            onPress={async () => {
+              await Cache.clearAll();
+              Alert.alert('Готово', 'Весь кэш очищен. Данные обновятся при следующем открытии экранов.');
+            }}
+          >
+            <View style={[styles.menuIconContainer, { backgroundColor: Colors.error + '15' }]}>
+              <Ionicons name="refresh" size={24} color={Colors.error} />
+            </View>
+            <View style={styles.menuContent}>
+              <Text style={[styles.menuTitle, { color: Colors.error }]}>Сбросить весь кэш</Text>
+              <Text style={styles.menuSubtitle}>Хадисы, молитвы, Q&A — принудительно обновятся</Text>
+            </View>
           </TouchableOpacity>
         </View>
 

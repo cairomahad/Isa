@@ -10,6 +10,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useColors } from '../../contexts/ThemeContext';
 import { Shadows } from '../../constants/colors';
 
+import { Cache, TTL } from '../../services/cache';
+
 type DailyContent = {
   hadith?: { arabic_text?: string; russian_text?: string; source?: string } | null;
   story?: { title?: string; text?: string; content?: string } | null;
@@ -24,10 +26,17 @@ export default function HadithsScreen() {
   const Colors = useColors();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
 
-  const fetchContent = useCallback(async () => {
+  const fetchContent = useCallback(async (force = false) => {
     try {
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.1.8:8001';
-      
+      const today = new Date().toISOString().split('T')[0];
+      const cacheKey = `cache_hadiths_${today}`;
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://tazakkur-production-c8c9.up.railway.app';
+
+      if (!force) {
+        const cached = await Cache.get<DailyContent>(cacheKey, TTL.HADITHS_LIST);
+        if (cached) { setContent(cached); setLoading(false); setRefreshing(false); return; }
+      }
+
       const [hadithRes, storyRes, benefitRes] = await Promise.all([
         fetch(`${backendUrl}/api/hadith/daily`),
         fetch(`${backendUrl}/api/story/daily`),
@@ -38,11 +47,13 @@ export default function HadithsScreen() {
       const storyData = storyRes.ok ? await storyRes.json() : null;
       const benefitData = benefitRes.ok ? await benefitRes.json() : null;
 
-      setContent({
+      const newContent = {
         hadith: hadithData || DEMO_HADITH,
         story: storyData || DEMO_STORY,
         benefit: benefitData || DEMO_BENEFIT,
-      });
+      };
+      setContent(newContent);
+      await Cache.set(cacheKey, newContent);
     } catch (err) {
       console.warn('Error fetching content:', err);
       setContent({ hadith: DEMO_HADITH, story: DEMO_STORY, benefit: DEMO_BENEFIT });

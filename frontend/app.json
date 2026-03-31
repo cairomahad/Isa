@@ -9,9 +9,9 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/mosque-logo.png",
+      "image": "./assets/images/splash-logo-transparent.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F8F6F2"
+      "backgroundColor": "#1A1A2E"
     },
     "ios": {
       "supportsTablet": true,
@@ -55,10 +55,10 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/mosque-logo.png",
+          "image": "./assets/images/splash-logo-transparent.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#F8F6F2"
+          "backgroundColor": "#1A1A2E"
         }
       ],
       "expo-font",
