@@ -1,5 +1,4 @@
 import * as Notifications from 'expo-notifications';
-import { SchedulableTriggerInputTypes } from 'expo-notifications';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -104,7 +103,6 @@ export async function schedulePrayerNotifications(prayerTimes: PrayerTimes): Pro
         data: { type: 'prayer-reminder', prayer },
       },
       trigger: {
-        type: SchedulableTriggerInputTypes.CALENDAR,
         repeats: true,
         hour: reminderHour,
         minute: reminderMinute,
@@ -122,7 +120,6 @@ export async function schedulePrayerNotifications(prayerTimes: PrayerTimes): Pro
         data: { type: 'prayer-time', prayer },
       },
       trigger: {
-        type: SchedulableTriggerInputTypes.CALENDAR,
         repeats: true,
         hour: hours,
         minute: minutes,
@@ -232,6 +229,9 @@ export async function cancelQuranNotifications(): Promise<void> {
   }
   await AsyncStorage.removeItem('quran_notifications_set');
 }
+
+/**
+ * Планирование уведомления о разблокировке урока
  */
 export async function scheduleLessonUnlockNotification(
   lessonTitle: string,
@@ -287,4 +287,23 @@ export async function cancelLessonNotifications(): Promise<void> {
       await Notifications.cancelScheduledNotificationAsync(n.identifier);
     }
   }
+}
+
+
+/**
+ * Тестовое уведомление для проверки работы системы
+ */
+export async function sendTestNotification(): Promise<void> {
+  const granted = await requestNotificationPermissions();
+  if (!granted) return;
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: `test-${Date.now()}`,
+    content: {
+      title: 'Тест уведомлений',
+      body: 'Уведомления работают корректно!',
+      sound: 'default',
+    },
+    trigger: { seconds: 1 },
+  });
 }

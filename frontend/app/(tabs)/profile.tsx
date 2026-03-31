@@ -135,7 +135,7 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>🏆 Достижения</Text>
-            <TouchableOpacity onPress={() => router.push('/achievements')}>
+            <TouchableOpacity onPress={() => router.push('/achievements' as any)}>
               <Text style={styles.seeAllText}>Все</Text>
             </TouchableOpacity>
           </View>

@@ -17,6 +17,7 @@ import {
   Alert,
   Modal,
   Animated,
+  TouchableOpacity,
 } from 'react-native';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { Platform } from 'react-native';

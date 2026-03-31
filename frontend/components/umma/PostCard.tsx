@@ -45,6 +45,7 @@ function FooterButton({
   icon: string; count?: number; onPress: () => void; color?: string;
 }) {
   const Colors = useColors();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
   return (
     <PressEffect>
       <Pressable style={styles.footerIcon} onPress={onPress}>
@@ -63,6 +64,8 @@ function FooterButton({
 
 /** Avatar — аналог Avatar из PostAdvance.js */
 function Avatar({ name, gradient }: { name: string; gradient: [string, string] }) {
+  const Colors = useColors();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const initials = name.slice(0, 2).toUpperCase();
   return (
     <LinearGradient

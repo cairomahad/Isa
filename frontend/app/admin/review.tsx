@@ -13,6 +13,8 @@ type Submission = {
   user_name: string;
   homework_title: string;
   submitted_at: string;
+  created_at?: string;
+  question?: string;
   audio_url?: string;
   photo_urls: string[];
   status: string;
@@ -139,7 +141,7 @@ export default function AdminReviewScreen() {
               <View style={styles.itemHeader}>
                 <Text style={styles.itemTitle}>{item.user_name}</Text>
                 <Text style={styles.itemDate}>
-                  {new Date(item.submitted_at || item.created_at).toLocaleDateString('ru-RU')}
+                  {new Date(item.submitted_at || item.created_at || '').toLocaleDateString('ru-RU')}
                 </Text>
               </View>
               

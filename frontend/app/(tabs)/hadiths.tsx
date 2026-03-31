@@ -140,7 +140,7 @@ export default function HadithsScreen() {
             {activeTab === 'story' && content.story && (
               <View style={styles.mainCard} testID="story-card">
                 <View style={[styles.cardBadge, styles.storyBadge]}>
-                  <Ionicons name="scroll" size={14} color={Colors.background} />
+                  <Ionicons name="book-outline" size={14} color={Colors.background} />
                   <Text style={styles.cardBadgeText}>История дня</Text>
                 </View>
 

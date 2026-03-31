@@ -43,7 +43,7 @@ export default function HomeworkScreen() {
   const [homework, setHomework] = useState<Homework | null>(null);
   
   // Audio recording
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [recording, setRecording] = useState<any>(null);
   const [audioUri, setAudioUri] = useState<string | null>(null);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
