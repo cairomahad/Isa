@@ -11,7 +11,7 @@ from datetime import datetime
 import re
 
 # Base URL from frontend .env
-BASE_URL = "https://islamic-app-bugs.preview.emergentagent.com/api"
+BASE_URL = "https://prayer-notify-fix.preview.emergentagent.com/api"
 
 def test_prayer_times_api():
     """Test Prayer Times API endpoints"""
