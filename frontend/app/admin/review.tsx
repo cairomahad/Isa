@@ -1,6 +1,6 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, TextInput, Alert,
+  ActivityIndicator, TextInput, Alert, Switch,
 } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -32,7 +32,8 @@ export default function AdminReviewScreen() {
   const [grade, setGrade] = useState('');
   const [comment, setComment] = useState('');
   const [reviewing, setReviewing] = useState(false);
-  
+  const [isPublic, setIsPublic] = useState(false);
+
   useEffect(() => {
     fetchItems();
   }, [type]);
@@ -78,7 +79,7 @@ export default function AdminReviewScreen() {
       
       const body = type === 'homework'
         ? { submission_id: selectedItem.id, grade: parseInt(grade), comment }
-        : { question_id: selectedItem.id, answer: comment };
+        : { question_id: selectedItem.id, answer: comment, is_public: isPublic };
       
       const response = await fetch(`${backendUrl}${endpoint}`, {
         method: 'POST',
@@ -204,6 +205,15 @@ export default function AdminReviewScreen() {
                 <>
                   <Text style={styles.modalLabel}>Вопрос</Text>
                   <Text style={styles.modalValue}>{selectedItem.question}</Text>
+                  <View style={styles.switchRow}>
+                    <Text style={styles.switchLabel}>Сделать публичным</Text>
+                    <Switch
+                      value={isPublic}
+                      onValueChange={setIsPublic}
+                      trackColor={{ false: Colors.border, true: Colors.primary }}
+                      thumbColor="#fff"
+                    />
+                  </View>
                 </>
               )}
               
@@ -266,7 +276,11 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   scroll: { flex: 1, paddingHorizontal: 20 },
-  
+  switchRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 12, marginTop: 8, marginBottom: 4,
+  },
+  switchLabel: { fontSize: 14, color: Colors.textPrimary, fontWeight: '600' },
   emptyState: {
     alignItems: 'center',
     paddingVertical: 60,

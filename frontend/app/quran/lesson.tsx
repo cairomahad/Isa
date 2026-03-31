@@ -40,7 +40,15 @@ export default function EveningLessonScreen() {
         const data = await Promise.all(
           l.ayahs.map(a => a.is_basmala
             ? Promise.resolve({ ...a, arabic_text: 'بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ', transliteration: 'Bismillāhi r-raḥmāni r-raḥīm', surah_name: 'Al-Fatiha' } as HifzAyahData & { is_basmala: boolean })
-            : HifzService.getAyahText(a.surah, a.ayah, a.audio_url).then(d => ({ ...d, is_basmala: false }))
+            : HifzService.getAyahText(a.surah, a.ayah, a.audio_url).then(d => {
+                const BASMALA = 'بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ';
+                const hasBasmalaBlock = l.ayahs.some(x => x.is_basmala);
+                let arabic = d.arabic_text || '';
+                if (hasBasmalaBlock && arabic.includes('بِسْمِ اللَّهِ')) {
+                  arabic = arabic.replace(/^بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ[\s\u200f]*/u, '').trim();
+                }
+                return { ...d, arabic_text: arabic, is_basmala: false };
+              })
           )
         );
         setAyahsData(data);

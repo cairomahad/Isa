@@ -2,97 +2,60 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { Colors, Shadows } from '../../constants/colors';
 import { useAuthStore } from '../../store/authStore';
+
+const API = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://tazakkur-production-c8c9.up.railway.app';
 
 type Question = {
   id: string;
   question_text: string;
-  answer_text: string | null;
+  answer_text?: string | null;
   status: 'pending' | 'answered';
   created_at: string;
-  answered_at: string | null;
+  answered_at?: string | null;
+  is_public?: boolean;
 };
 
-const DEMO_QUESTIONS: Question[] = [
-  {
-    id: '1',
-    question_text: 'Можно ли читать намаз дома, если мечеть далеко?',
-    answer_text: 'Да, если расстояние до мечети слишком велико или есть уважительная причина, можно совершать намаз дома. Однако коллективный намаз в мечети имеет большую награду.',
-    status: 'answered',
-    created_at: '2024-03-20T10:30:00Z',
-    answered_at: '2024-03-20T14:00:00Z',
-  },
-  {
-    id: '2',
-    question_text: 'Как правильно возмещать пропущенные намазы?',
-    answer_text: null,
-    status: 'pending',
-    created_at: '2024-03-25T09:15:00Z',
-    answered_at: null,
-  },
-];
+function formatDate(s: string) {
+  return new Date(s).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+}
 
-function QuestionCard({ question }: { question: Question }) {
+function QuestionCard({ q, showAnswer = true }: { q: Question; showAnswer?: boolean }) {
   const [expanded, setExpanded] = useState(false);
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-  };
-
+  const answered = q.status === 'answered';
   return (
-    <View style={styles.questionCard}>
-      <View style={styles.questionHeader}>
-        <View style={styles.statusBadge}>
-          {question.status === 'answered' ? (
-            <>
-              <Ionicons name="checkmark-circle" size={16} color={Colors.gold} />
-              <Text style={styles.statusText}>Отвечено</Text>
-            </>
-          ) : (
-            <>
-              <Ionicons name="time-outline" size={16} color={Colors.textSecondary} />
-              <Text style={[styles.statusText, { color: Colors.textSecondary }]}>Ожидание</Text>
-            </>
-          )}
+    <View style={styles.card}>
+      <View style={styles.cardTop}>
+        <View style={[styles.badge, answered ? styles.badgeGold : styles.badgeGray]}>
+          <Ionicons name={answered ? 'checkmark-circle' : 'time-outline'} size={14} color={answered ? Colors.gold : Colors.textSecondary} />
+          <Text style={[styles.badgeText, { color: answered ? Colors.gold : Colors.textSecondary }]}>
+            {answered ? 'Отвечено' : 'Ожидание'}
+          </Text>
         </View>
-        <Text style={styles.questionDate}>{formatDate(question.created_at)}</Text>
+        <Text style={styles.dateText}>{formatDate(q.created_at)}</Text>
       </View>
 
-      <Text style={styles.questionText}>{question.question_text}</Text>
+      <Text style={styles.questionText}>{q.question_text}</Text>
 
-      {question.status === 'answered' && (
-        <TouchableOpacity
-          style={styles.expandButton}
-          onPress={() => setExpanded(!expanded)}
-        >
-          <Text style={styles.expandButtonText}>
-            {expanded ? 'Скрыть ответ' : 'Посмотреть ответ'}
-          </Text>
-          <Ionicons
-            name={expanded ? 'chevron-up' : 'chevron-down'}
-            size={20}
-            color={Colors.gold}
-          />
+      {showAnswer && answered && (
+        <TouchableOpacity style={styles.expandBtn} onPress={() => setExpanded(!expanded)} testID="expand-answer-btn">
+          <Text style={styles.expandText}>{expanded ? 'Скрыть ответ' : 'Посмотреть ответ'}</Text>
+          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.gold} />
         </TouchableOpacity>
       )}
 
-      {expanded && question.answer_text && (
-        <View style={styles.answerContainer}>
+      {expanded && q.answer_text && (
+        <View style={styles.answerBox}>
           <View style={styles.answerHeader}>
-            <Ionicons name="person-circle" size={24} color={Colors.gold} />
-            <Text style={styles.answerHeaderText}>Ответ Шейха</Text>
+            <Ionicons name="person-circle" size={22} color={Colors.gold} />
+            <Text style={styles.answerLabel}>Ответ Шейха</Text>
           </View>
-          <Text style={styles.answerText}>{question.answer_text}</Text>
-          {question.answered_at && (
-            <Text style={styles.answerDate}>
-              Отвечено {formatDate(question.answered_at)}
-            </Text>
-          )}
+          <Text style={styles.answerText}>{q.answer_text}</Text>
         </View>
       )}
     </View>
@@ -101,141 +64,159 @@ function QuestionCard({ question }: { question: Question }) {
 
 export default function QAScreen() {
   const { user } = useAuthStore();
-  const [questions, setQuestions] = useState<Question[]>(DEMO_QUESTIONS);
-  const [newQuestion, setNewQuestion] = useState('');
+  const [tab, setTab] = useState<'my' | 'public'>('my');
+  const [myQuestions, setMyQuestions] = useState<Question[]>([]);
+  const [publicQuestions, setPublicQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [questionText, setQuestionText] = useState('');
 
-  const handleSubmitQuestion = async () => {
-    if (!newQuestion.trim()) {
-      Alert.alert('Ошибка', 'Пожалуйста, введите ваш вопрос');
-      return;
-    }
+  const fetchMyQuestions = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const r = await fetch(`${API}/api/qa/my-questions?user_id=${user.id}`);
+      const d = await r.json();
+      setMyQuestions(d.questions || []);
+    } catch (e) { console.warn('fetchMyQuestions error', e); }
+  }, [user?.id]);
 
-    if (newQuestion.trim().length < 10) {
+  const fetchPublicQuestions = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/api/qa/public`);
+      const d = await r.json();
+      setPublicQuestions(d.questions || []);
+    } catch (e) { console.warn('fetchPublicQuestions error', e); }
+  }, []);
+
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    await Promise.all([fetchMyQuestions(), fetchPublicQuestions()]);
+    setLoading(false);
+  }, [fetchMyQuestions, fetchPublicQuestions]);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
+  useFocusEffect(useCallback(() => { loadAll(); }, [loadAll]));
+
+  const handleSubmit = async () => {
+    if (!questionText.trim() || questionText.trim().length < 10) {
       Alert.alert('Ошибка', 'Вопрос должен быть не менее 10 символов');
       return;
     }
-
-    setLoading(true);
-
-    // TODO: Send to backend API
-    const newQ: Question = {
-      id: Date.now().toString(),
-      question_text: newQuestion.trim(),
-      answer_text: null,
-      status: 'pending',
-      created_at: new Date().toISOString(),
-      answered_at: null,
-    };
-
-    setTimeout(() => {
-      setQuestions([newQ, ...questions]);
-      setNewQuestion('');
+    setSending(true);
+    try {
+      const res = await fetch(`${API}/api/qa/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user?.id, question_text: questionText.trim() }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.detail || 'Ошибка отправки');
+      }
+      setQuestionText('');
       setShowForm(false);
-      setLoading(false);
-      Alert.alert('Успешно!', 'Ваш вопрос отправлен Шейху. Ожидайте ответа.');
-    }, 1000);
+      Alert.alert('Отправлено!', 'Ваш вопрос отправлен Шейху. Ожидайте ответа.');
+      await fetchMyQuestions();
+    } catch (e: any) {
+      Alert.alert('Ошибка', e.message);
+    } finally {
+      setSending(false);
+    }
   };
+
+  const currentList = tab === 'my' ? myQuestions : publicQuestions;
 
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView
-          style={styles.scroll}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Вопросы Шейху 🤲</Text>
+            <Text style={styles.title}>Вопросы Шейху</Text>
           </View>
 
-          {/* Info Card */}
+          {/* Info */}
           <View style={styles.infoCard}>
-            <Ionicons name="information-circle" size={24} color={Colors.gold} />
+            <Ionicons name="information-circle" size={22} color={Colors.gold} />
             <Text style={styles.infoText}>
-              Задайте свой вопрос по религии, и Шейх ответит вам в ближайшее время
+              Задайте вопрос по религии и Шейх ответит вам в ближайшее время
             </Text>
           </View>
 
-          {/* Ask Question Button */}
+          {/* Ask button */}
           {!showForm && (
-            <TouchableOpacity
-              style={styles.askButton}
-              onPress={() => setShowForm(true)}
-            >
-              <Ionicons name="add-circle" size={24} color={Colors.background} />
-              <Text style={styles.askButtonText}>Задать вопрос</Text>
+            <TouchableOpacity style={styles.askBtn} onPress={() => setShowForm(true)} testID="ask-question-btn">
+              <Ionicons name="add-circle" size={22} color={Colors.background} />
+              <Text style={styles.askBtnText}>Задать вопрос</Text>
             </TouchableOpacity>
           )}
 
           {/* Question Form */}
           {showForm && (
-            <View style={styles.formContainer}>
+            <View style={styles.formCard}>
               <Text style={styles.formTitle}>Ваш вопрос</Text>
               <TextInput
-                style={styles.textInput}
-                placeholder="Введите ваш вопрос..."
+                testID="question-input"
+                style={styles.textarea}
+                placeholder="Напишите вопрос подробно (минимум 10 символов)..."
                 placeholderTextColor={Colors.textSecondary}
+                value={questionText}
+                onChangeText={setQuestionText}
                 multiline
-                numberOfLines={6}
-                value={newQuestion}
-                onChangeText={setNewQuestion}
-                maxLength={500}
+                numberOfLines={4}
+                textAlignVertical="top"
               />
-              <Text style={styles.charCount}>{newQuestion.length}/500</Text>
-
-              <View style={styles.formButtons}>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => {
-                    setShowForm(false);
-                    setNewQuestion('');
-                  }}
-                >
-                  <Text style={styles.cancelButtonText}>Отмена</Text>
+              <Text style={styles.charCount}>{questionText.length} символов</Text>
+              <View style={styles.formActions}>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => { setShowForm(false); setQuestionText(''); }} testID="cancel-question-btn">
+                  <Text style={styles.cancelBtnText}>Отмена</Text>
                 </TouchableOpacity>
-
                 <TouchableOpacity
-                  style={[styles.submitButton, loading && styles.submitButtonDisabled]}
-                  onPress={handleSubmitQuestion}
-                  disabled={loading}
+                  style={[styles.sendBtn, (sending || questionText.trim().length < 10) && styles.sendBtnDisabled]}
+                  onPress={handleSubmit}
+                  disabled={sending || questionText.trim().length < 10}
+                  testID="send-question-btn"
                 >
-                  {loading ? (
-                    <ActivityIndicator color={Colors.background} />
-                  ) : (
-                    <>
-                      <Ionicons name="send" size={20} color={Colors.background} />
-                      <Text style={styles.submitButtonText}>Отправить</Text>
-                    </>
-                  )}
+                  {sending ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.sendBtnText}>Отправить</Text>}
                 </TouchableOpacity>
               </View>
             </View>
           )}
 
-          {/* Questions List */}
-          <View style={styles.listContainer}>
-            <Text style={styles.listTitle}>
-              Мои вопросы ({questions.length})
-            </Text>
-
-            {questions.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="chatbubbles-outline" size={64} color={Colors.textSecondary} />
-                <Text style={styles.emptyText}>У вас пока нет вопросов</Text>
-                <Text style={styles.emptySubtext}>Задайте свой первый вопрос!</Text>
-              </View>
-            ) : (
-              questions.map((q) => <QuestionCard key={q.id} question={q} />)
-            )}
+          {/* Tabs */}
+          <View style={styles.tabRow}>
+            {(['my', 'public'] as const).map(t => (
+              <TouchableOpacity
+                key={t}
+                style={[styles.tabBtn, tab === t && styles.tabBtnActive]}
+                onPress={() => setTab(t)}
+                testID={`tab-${t}`}
+              >
+                <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
+                  {t === 'my' ? `Мои вопросы (${myQuestions.length})` : `Публичные Q&A (${publicQuestions.length})`}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
-          <View style={{ height: 40 }} />
+          {/* List */}
+          {loading ? (
+            <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
+          ) : currentList.length === 0 ? (
+            <View style={styles.empty}>
+              <Ionicons name="chatbubble-ellipses-outline" size={48} color={Colors.textTertiary} />
+              <Text style={styles.emptyText}>
+                {tab === 'my' ? 'У вас пока нет вопросов' : 'Публичных вопросов пока нет'}
+              </Text>
+            </View>
+          ) : (
+            currentList.map(q => (
+              <QuestionCard key={q.id} q={q} showAnswer={true} />
+            ))
+          )}
+
+          <View style={{ height: 120 }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -243,212 +224,76 @@ export default function QAScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
-  scroll: { flex: 1, paddingHorizontal: 16 },
-  header: {
-    paddingTop: 16,
-    marginBottom: 20,
-  },
-  title: { fontSize: 24, fontWeight: 'bold', color: Colors.gold },
+  safe: { flex: 1, backgroundColor: Colors.backgroundPage },
+  scroll: { flex: 1 },
+  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8 },
+  title: { fontSize: 26, fontWeight: '800', color: Colors.textPrimary },
   infoCard: {
-    backgroundColor: Colors.cardDark,
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: Colors.darkGreen,
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    backgroundColor: Colors.goldBackground || '#FFF8E7',
+    borderRadius: 16, padding: 14, marginHorizontal: 20, marginBottom: 16,
+    borderLeftWidth: 3, borderLeftColor: Colors.gold,
   },
-  infoText: {
-    flex: 1,
-    fontSize: 14,
-    color: Colors.textPrimary,
-    marginLeft: 12,
-    lineHeight: 20,
+  infoText: { flex: 1, fontSize: 13, color: Colors.textSecondary, lineHeight: 20 },
+  askBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.primary, borderRadius: 16,
+    paddingVertical: 14, paddingHorizontal: 20,
+    marginHorizontal: 20, marginBottom: 20, justifyContent: 'center',
   },
-  askButton: {
-    backgroundColor: Colors.gold,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    marginBottom: 24,
-    ...Shadows.card,
+  askBtnText: { color: Colors.background, fontWeight: '700', fontSize: 16 },
+  formCard: {
+    backgroundColor: Colors.surface, borderRadius: 20, padding: 20,
+    marginHorizontal: 20, marginBottom: 20, ...Shadows.card,
   },
-  askButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: Colors.background,
-    marginLeft: 8,
+  formTitle: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary, marginBottom: 12 },
+  textarea: {
+    backgroundColor: Colors.backgroundPage, borderRadius: 12, borderWidth: 1,
+    borderColor: Colors.border, padding: 12, minHeight: 100,
+    fontSize: 15, color: Colors.textPrimary,
   },
-  formContainer: {
-    backgroundColor: Colors.cardDark,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: Colors.darkGreen,
+  charCount: { fontSize: 11, color: Colors.textTertiary, textAlign: 'right', marginTop: 4, marginBottom: 12 },
+  formActions: { flexDirection: 'row', gap: 12 },
+  cancelBtn: {
+    flex: 1, borderWidth: 1, borderColor: Colors.border, borderRadius: 12,
+    paddingVertical: 12, alignItems: 'center',
   },
-  formTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: Colors.gold,
-    marginBottom: 12,
+  cancelBtnText: { color: Colors.textSecondary, fontWeight: '600' },
+  sendBtn: {
+    flex: 2, backgroundColor: Colors.primary, borderRadius: 12,
+    paddingVertical: 12, alignItems: 'center',
   },
-  textInput: {
-    backgroundColor: Colors.background,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    color: Colors.textPrimary,
-    minHeight: 120,
-    textAlignVertical: 'top',
-    borderWidth: 1,
-    borderColor: Colors.darkGreen,
+  sendBtnDisabled: { backgroundColor: Colors.border },
+  sendBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  tabRow: {
+    flexDirection: 'row', marginHorizontal: 20, marginBottom: 16,
+    backgroundColor: Colors.backgroundPage, borderRadius: 14, padding: 4,
   },
-  charCount: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    textAlign: 'right',
-    marginTop: 4,
-    marginBottom: 12,
+  tabBtn: { flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: 'center' },
+  tabBtnActive: { backgroundColor: Colors.primary },
+  tabText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  tabTextActive: { color: '#fff' },
+  card: {
+    backgroundColor: Colors.surface, borderRadius: 20, padding: 16,
+    marginHorizontal: 20, marginBottom: 14, ...Shadows.card,
   },
-  formButtons: {
-    flexDirection: 'row',
-    gap: 12,
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  badgeGold: { backgroundColor: '#FFF8E7' },
+  badgeGray: { backgroundColor: Colors.backgroundPage },
+  badgeText: { fontSize: 12, fontWeight: '600' },
+  dateText: { fontSize: 11, color: Colors.textTertiary },
+  questionText: { fontSize: 15, color: Colors.textPrimary, lineHeight: 22, marginBottom: 10 },
+  expandBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  expandText: { fontSize: 14, color: Colors.gold, fontWeight: '600' },
+  answerBox: {
+    backgroundColor: Colors.goldBackground || '#FFF8E7',
+    borderRadius: 14, padding: 14, marginTop: 12,
+    borderLeftWidth: 3, borderLeftColor: Colors.gold,
   },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.darkGreen,
-  },
-  cancelButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-  },
-  submitButton: {
-    flex: 1,
-    backgroundColor: Colors.gold,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 6,
-  },
-  submitButtonDisabled: {
-    opacity: 0.5,
-  },
-  submitButtonText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: Colors.background,
-  },
-  listContainer: {
-    marginTop: 8,
-  },
-  listTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.gold,
-    marginBottom: 16,
-  },
-  questionCard: {
-    backgroundColor: Colors.cardDark,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.darkGreen,
-  },
-  questionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.gold,
-  },
-  questionDate: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-  },
-  questionText: {
-    fontSize: 15,
-    color: Colors.textPrimary,
-    lineHeight: 22,
-    marginBottom: 12,
-  },
-  expandButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    gap: 6,
-  },
-  expandButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.gold,
-  },
-  answerContainer: {
-    backgroundColor: Colors.background,
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.gold,
-  },
-  answerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
-  },
-  answerHeaderText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: Colors.gold,
-  },
-  answerText: {
-    fontSize: 14,
-    color: Colors.textPrimary,
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  answerDate: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    fontStyle: 'italic',
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    marginTop: 4,
-  },
+  answerHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  answerLabel: { fontSize: 13, fontWeight: '700', color: Colors.gold },
+  answerText: { fontSize: 14, color: Colors.textPrimary, lineHeight: 22 },
+  empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
+  emptyText: { fontSize: 15, color: Colors.textTertiary, textAlign: 'center' },
 });

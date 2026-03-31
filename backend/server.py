@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Query, UploadFile, File
+from fastapi import FastAPI, APIRouter, HTTPException, Query, UploadFile, File, Request
 from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -79,15 +79,22 @@ class Benefit(BaseModel):
 
 # Login Models
 class LoginRequest(BaseModel):
-    phone: str
+    phone: Optional[str] = None
+    email: Optional[str] = None
     password: str
 
 class LoginResponse(BaseModel):
     user_id: str
     phone: str
+    email: Optional[str] = None
     display_name: str
     role: str
     points: int
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    name: Optional[str] = "Студент"
 
 # Lesson Models
 class Lesson(BaseModel):
@@ -468,39 +475,99 @@ async def get_daily_benefit():
 # ========== AUTH API ==========
 @api_router.post("/auth/login", response_model=LoginResponse)
 async def login(request: LoginRequest):
-    """Login with phone and password"""
+    """Login with phone/email and password"""
     try:
-        # Query Supabase for user
-        response = supabase.table('users').select('*').eq('phone', request.phone).execute()
-        
-        if not response.data or len(response.data) == 0:
-            raise HTTPException(status_code=401, detail="Неверный телефон или пароль")
-        
+        login_id = (request.email or request.phone or "").strip().lower()
+        if not login_id:
+            raise HTTPException(status_code=400, detail="Укажите email или телефон")
+
+        # Search by phone field (stores either phone or email)
+        response = supabase.table('users').select('*').eq('phone', login_id).execute()
+        if not response.data:
+            raise HTTPException(status_code=401, detail="Неверный email/телефон или пароль")
+
         user = response.data[0]
-        
-        # Simple password check (без хеширования пока)
-        # В продакшене используйте bcrypt
-        if user.get('password') != request.password:
-            raise HTTPException(status_code=401, detail="Неверный телефон или пароль")
-        
-        # Определяем роль: из БД или fallback по phone
-        role = user.get('role')
-        if role is None:
-            # Временная проверка, пока поле role не добавлено в БД
-            role = 'admin' if user.get('phone') == 'admin' else 'student'
-        
+
+        # Password check — support plain text (legacy) or bcrypt
+        stored_pw = user.get('password') or ''
+        password_ok = False
+        if stored_pw.startswith('$2b$') or stored_pw.startswith('$2a$'):
+            try:
+                import bcrypt as _bcrypt
+                password_ok = _bcrypt.checkpw((request.password or '').encode(), stored_pw.encode())
+            except Exception:
+                password_ok = False
+        else:
+            password_ok = (stored_pw == (request.password or ''))
+
+        if not password_ok:
+            raise HTTPException(status_code=401, detail="Неверный email/телефон или пароль")
+
+        role = user.get('role') or 'student'
+
         return LoginResponse(
             user_id=str(user.get('id', '')),
-            phone=user.get('phone', ''),
-            display_name=user.get('display_name', 'Студент'),
+            phone=user.get('phone') or '',
+            email=user.get('phone'),
+            display_name=user.get('display_name') or user.get('first_name') or 'Студент',
             role=role,
             points=user.get('points', 0),
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Login error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/auth/register")
+async def register(request: RegisterRequest):
+    """Register a new user with email (stored in phone field) and password"""
+    try:
+        email = (request.email or '').strip().lower()
+        if not email or '@' not in email:
+            raise HTTPException(status_code=400, detail="Некорректный email")
+
+        # Check if email already exists (stored in phone field)
+        existing = supabase.table('users').select('id').eq('phone', email).execute()
+        if existing.data:
+            raise HTTPException(status_code=400, detail="Пользователь с таким email уже существует")
+
+        import bcrypt as _bcrypt
+        import hashlib
+        hashed = _bcrypt.hashpw((request.password or '').encode(), _bcrypt.gensalt()).decode()
+
+        # Generate a fake telegram_id from email hash (required by DB NOT NULL constraint)
+        fake_tid = int(hashlib.md5(email.encode()).hexdigest()[:12], 16) % 9000000000 + 1000000000
+
+        new_user = {
+            "phone": email,        # email stored in phone field
+            "password": hashed,
+            "display_name": (request.name or '').strip() or 'Студент',
+            "role": "student",
+            "points": 0,
+            "telegram_id": fake_tid,
+            "created_at": datetime.utcnow().isoformat(),
+            "onboarding_completed": True,
+        }
+        r = supabase.table('users').insert(new_user).execute()
+        if not r.data:
+            raise HTTPException(status_code=500, detail="Ошибка создания пользователя")
+
+        user = r.data[0]
+        return {
+            "user_id": str(user['id']),
+            "email": user.get('phone'),
+            "display_name": user.get('display_name'),
+            "role": user.get('role', 'student'),
+            "points": 0,
+            "phone": user.get('phone', ''),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Register error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1101,55 +1168,128 @@ async def get_pending_questions(status: str = Query("pending")):
     try:
         query = supabase.table('sheikh_questions').select('*')
         query = query.eq('status', status)
-        
         response = query.order('created_at', desc=True).execute()
-        
+
         questions = []
         for q in (response.data or []):
-            # Get user info
-            user_info = supabase.table('users').select('display_name').eq('telegram_id', q.get('telegram_id')).execute()
-            user_name = user_info.data[0].get('display_name', 'Студент') if user_info.data else 'Студент'
-            
+            user_name = 'Студент'
+            tid = q.get('telegram_id')
+            if tid:
+                ui = supabase.table('users').select('display_name,first_name').eq('telegram_id', tid).execute()
+                if ui.data:
+                    user_name = ui.data[0].get('display_name') or ui.data[0].get('first_name') or 'Студент'
             questions.append({
                 'id': str(q.get('id', '')),
                 'user_name': user_name,
-                'question': q.get('question', ''),
+                'question': q.get('question') or '',
                 'created_at': q.get('created_at', ''),
                 'status': q.get('status', 'pending'),
                 'answer': q.get('answer'),
+                'is_public': q.get('is_public', False),
             })
-        
         return {"questions": questions}
-        
     except Exception as e:
         logger.error(f"Error fetching questions: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @api_router.post("/admin/answer-question")
-async def answer_question(question_id: str, answer: str):
+async def answer_question(question_id: str, answer: str, is_public: bool = False):
     """Admin: Answer a student's question"""
     try:
         update_data = {
             'status': 'answered',
             'answer': answer,
             'answered_at': datetime.now().isoformat(),
+            'is_public': is_public,
         }
-        
         response = supabase.table('sheikh_questions').update(update_data).eq('id', question_id).execute()
-        
-        if not response.data or len(response.data) == 0:
+        if not response.data:
             raise HTTPException(status_code=404, detail="Question not found")
-        
-        return {
-            "success": True,
-            "message": "Ответ отправлен студенту",
-        }
-        
+        return {"success": True, "message": "Ответ отправлен"}
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error answering question: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/qa/submit")
+async def submit_question(request: Request):
+    """Student submits a question to the sheikh"""
+    try:
+        body = await request.json()
+        user_id = body.get("user_id")
+        question_text = (body.get("question_text") or "").strip()
+        if not question_text or len(question_text) < 5:
+            raise HTTPException(status_code=400, detail="Вопрос слишком короткий")
+
+        # Get telegram_id for this user
+        u = supabase.table("users").select("telegram_id").eq("id", user_id).execute()
+        if not u.data:
+            raise HTTPException(status_code=404, detail="User not found")
+        telegram_id = u.data[0].get("telegram_id")
+
+        supabase.table("sheikh_questions").insert({
+            "telegram_id": telegram_id,
+            "question": question_text,
+            "status": "pending",
+            "is_public": False,
+            "created_at": datetime.utcnow().isoformat(),
+        }).execute()
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"submit_question error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/qa/my-questions")
+async def get_my_questions(user_id: str = Query(...)):
+    """Student's own questions with answers"""
+    try:
+        u = supabase.table("users").select("telegram_id").eq("id", user_id).execute()
+        if not u.data:
+            return {"questions": []}
+        telegram_id = u.data[0].get("telegram_id")
+        r = supabase.table("sheikh_questions").select("*").eq("telegram_id", telegram_id).order("created_at", desc=True).execute()
+        # Normalize field names for frontend
+        questions = [{
+            'id': str(q['id']),
+            'question_text': q.get('question', ''),
+            'answer_text': q.get('answer'),
+            'status': q.get('status', 'pending'),
+            'created_at': q.get('created_at', ''),
+            'answered_at': q.get('answered_at'),
+            'is_public': q.get('is_public', False),
+        } for q in (r.data or [])]
+        return {"questions": questions}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/qa/public")
+async def get_public_questions():
+    """All public answered questions"""
+    try:
+        r = supabase.table("sheikh_questions")\
+            .select("*")\
+            .eq("is_public", True)\
+            .eq("status", "answered")\
+            .order("created_at", desc=True)\
+            .execute()
+        questions = [{
+            'id': str(q['id']),
+            'question_text': q.get('question', ''),
+            'answer_text': q.get('answer'),
+            'status': q.get('status', 'pending'),
+            'created_at': q.get('created_at', ''),
+            'answered_at': q.get('answered_at'),
+            'is_public': q.get('is_public', False),
+        } for q in (r.data or [])]
+        return {"questions": questions}
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1231,17 +1371,10 @@ async def start_quran_program(request: StartQuranProgramRequest):
     try:
         user_id = request.user_id
         surah_number = request.surah_number
-        
-        user_response = supabase.table('users').select('telegram_id').eq('id', user_id).execute()
-        
-        if not user_response.data or len(user_response.data) == 0:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        telegram_id = user_response.data[0].get('telegram_id')
-        
-        # Create program
+
+        # Create program without telegram_id (use user_id only)
         program_data = {
-            'telegram_id': telegram_id,
+            'user_id': user_id,
             'is_active': True,
             'started_at': datetime.now().isoformat(),
             'study_week': 1,
@@ -1252,15 +1385,20 @@ async def start_quran_program(request: StartQuranProgramRequest):
             'last_lesson_date': datetime.now().strftime('%Y-%m-%d'),
             'created_at': datetime.now().isoformat(),
         }
-        
-        supabase.table('quran_program').insert(program_data).execute()
-        
+
+        # Check if program already exists
+        existing = supabase.table('quran_program').select('id').eq('user_id', user_id).execute()
+        if existing.data:
+            supabase.table('quran_program').update(program_data).eq('user_id', user_id).execute()
+        else:
+            supabase.table('quran_program').insert(program_data).execute()
+
         return {
             "success": True,
             "message": "Программа изучения Корана запущена!",
             "surah_number": surah_number,
         }
-        
+
     except Exception as e:
         logger.error(f"Error starting program: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -2155,12 +2293,16 @@ class ReportPostRequest(BaseModel):
 
 
 async def _check_can_post(user_id: str) -> bool:
-    """Check if user completed fard_shafi or fard_hanafi course."""
+    """Check if user completed fard_shafi or fard_hanafi course, or is admin."""
     try:
-        user_resp = supabase.table('users').select('telegram_id').eq('id', user_id).execute()
+        user_resp = supabase.table('users').select('role, telegram_id').eq('id', user_id).execute()
         if not user_resp.data:
             return False
-        telegram_id = user_resp.data[0].get('telegram_id')
+        user_data = user_resp.data[0]
+        # Admins can always post
+        if user_data.get('role') == 'admin':
+            return True
+        telegram_id = user_data.get('telegram_id')
         if not telegram_id:
             return False
 

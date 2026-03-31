@@ -171,7 +171,7 @@ export default function UmmaTabBar({ state, descriptors, navigation }: any) {
   );
 
   return (
-    <View style={{ height: tabHeight + 30, position: 'relative' }}>
+    <View style={{ height: tabHeight + 40, position: 'relative' }}>
       {/* SVG кривая — точная копия из TabBarSvg.js */}
       <TabBarSvg height={tabHeight} fill={Colors.tabBar} />
 

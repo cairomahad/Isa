@@ -188,6 +188,20 @@ export default function ProfileScreen() {
         </View>
 
         <View style={{ height: 40 }} />
+
+        {/* Admin Panel Button */}
+        {(user?.role === 'admin' || user?.is_admin) && (
+          <TouchableOpacity
+            style={styles.adminBtn}
+            onPress={() => router.push('/admin' as any)}
+          >
+            <Ionicons name="shield-checkmark" size={20} color="#fff" />
+            <Text style={styles.adminBtnText}>Панель администратора</Text>
+            <Ionicons name="arrow-forward" size={16} color="#fff" />
+          </TouchableOpacity>
+        )}
+
+        <View style={{ height: 110 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -196,6 +210,17 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.backgroundPage },
   scroll: { flex: 1 },
+  adminBtn: {
+    marginHorizontal: 20,
+    marginBottom: 12,
+    backgroundColor: Colors.primary,
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  adminBtnText: { color: '#fff', fontWeight: '700', fontSize: 15, flex: 1 },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

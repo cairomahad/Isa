@@ -204,9 +204,7 @@ export default function HomeScreen() {
           <View style={styles.hadithCard}>
             <Text style={styles.hadithTitle}>ХАДИС ДНЯ</Text>
             <View style={styles.hadithDivider} />
-            <ScrollView style={styles.hadithScroll} nestedScrollEnabled showsVerticalScrollIndicator={false}>
-              <Text style={styles.hadithText}>{hadith.russian_text || hadith.text_ru}</Text>
-            </ScrollView>
+            <Text style={styles.hadithText}>{hadith.russian_text || hadith.text_ru}</Text>
           </View>
         )}
 
@@ -251,7 +249,7 @@ export default function HomeScreen() {
           </View>
         )}
 
-        <View style={{ height: 32 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -290,7 +288,6 @@ const makeStyles = (Colors: any) => StyleSheet.create({
   hadithCard: { backgroundColor: Colors.greenBackground, borderRadius: 20, padding: 20, marginHorizontal: 20, marginBottom: 24, borderLeftWidth: 3, borderLeftColor: Colors.green, ...Shadows.card },
   hadithTitle: { fontSize: 11, fontWeight: '800', color: Colors.green, letterSpacing: 1.5, marginBottom: 10 },
   hadithDivider: { height: 1, backgroundColor: Colors.border, marginBottom: 12 },
-  hadithScroll:  { maxHeight: 160 },
   hadithText: { fontSize: 15, color: Colors.textPrimary, lineHeight: 26, fontStyle: 'italic', backgroundColor: 'transparent' },
   section:       { marginBottom: 24, paddingHorizontal: 20 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },

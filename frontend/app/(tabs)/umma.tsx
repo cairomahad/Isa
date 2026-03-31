@@ -268,7 +268,7 @@ const makeStyles = (Colors: any) => StyleSheet.create({
   emptySub: { fontSize: 15, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
 
   // FAB
-  fabWrapper: { position: 'absolute', bottom: 90, right: 20 },
+  fabWrapper: { position: 'absolute', bottom: 110, right: 20 },
   fab: {
     width: 56, height: 56, borderRadius: 28,
     backgroundColor: Colors.primary,
