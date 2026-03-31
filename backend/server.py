@@ -2413,6 +2413,497 @@ async def get_umma_migration_sql():
     sql = open(Path(__file__).parent / 'umma_migration.sql').read() if (Path(__file__).parent / 'umma_migration.sql').exists() else "File not found"
     return {"sql": sql, "instructions": "Выполните этот SQL в Supabase SQL Editor: https://supabase.com/dashboard/project/kmhhazpyalpjwspjxzry/editor"}
 
+# ========== QURAN HIFZ API (NEW — uses user_id UUID) ==========
+
+ALL_SURAHS = [
+    {"number": 1, "name": "Al-Fatiha", "name_ru": "Аль-Фатиха", "name_ar": "الفاتحة", "ayahs": 7},
+    {"number": 2, "name": "Al-Baqara", "name_ru": "Аль-Бакара", "name_ar": "البقرة", "ayahs": 286},
+    {"number": 3, "name": "Aal-E-Imran", "name_ru": "Аль-Имран", "name_ar": "آل عمران", "ayahs": 200},
+    {"number": 4, "name": "An-Nisa", "name_ru": "Ан-Нисаа", "name_ar": "النساء", "ayahs": 176},
+    {"number": 5, "name": "Al-Maidah", "name_ru": "Аль-Маида", "name_ar": "المائدة", "ayahs": 120},
+    {"number": 6, "name": "Al-Anam", "name_ru": "Аль-Анам", "name_ar": "الأنعام", "ayahs": 165},
+    {"number": 7, "name": "Al-Araf", "name_ru": "Аль-Ааараф", "name_ar": "الأعراف", "ayahs": 206},
+    {"number": 8, "name": "Al-Anfal", "name_ru": "Аль-Анфаль", "name_ar": "الأنفال", "ayahs": 75},
+    {"number": 9, "name": "At-Tawbah", "name_ru": "Ат-Тауба", "name_ar": "التوبة", "ayahs": 129},
+    {"number": 10, "name": "Yunus", "name_ru": "Юнус", "name_ar": "يونس", "ayahs": 109},
+    {"number": 11, "name": "Hud", "name_ru": "Худ", "name_ar": "هود", "ayahs": 123},
+    {"number": 12, "name": "Yusuf", "name_ru": "Юсуф", "name_ar": "يوسف", "ayahs": 111},
+    {"number": 13, "name": "Ar-Rad", "name_ru": "Ар-Раад", "name_ar": "الرعد", "ayahs": 43},
+    {"number": 14, "name": "Ibrahim", "name_ru": "Ибрагим", "name_ar": "إبراهيم", "ayahs": 52},
+    {"number": 15, "name": "Al-Hijr", "name_ru": "Аль-Хиджр", "name_ar": "الحجر", "ayahs": 99},
+    {"number": 16, "name": "An-Nahl", "name_ru": "Ан-Нахль", "name_ar": "النحل", "ayahs": 128},
+    {"number": 17, "name": "Al-Isra", "name_ru": "Аль-Исраа", "name_ar": "الإسراء", "ayahs": 111},
+    {"number": 18, "name": "Al-Kahf", "name_ru": "Аль-Кахф", "name_ar": "الكهف", "ayahs": 110},
+    {"number": 19, "name": "Maryam", "name_ru": "Марьям", "name_ar": "مريم", "ayahs": 98},
+    {"number": 20, "name": "Ta-Ha", "name_ru": "Та-Ха", "name_ar": "طه", "ayahs": 135},
+    {"number": 21, "name": "Al-Anbiya", "name_ru": "Аль-Анбияа", "name_ar": "الأنبياء", "ayahs": 112},
+    {"number": 22, "name": "Al-Hajj", "name_ru": "Аль-Хадж", "name_ar": "الحج", "ayahs": 78},
+    {"number": 23, "name": "Al-Muminun", "name_ru": "Аль-Муминун", "name_ar": "المؤمنون", "ayahs": 118},
+    {"number": 24, "name": "An-Nur", "name_ru": "Ан-Нур", "name_ar": "النور", "ayahs": 64},
+    {"number": 25, "name": "Al-Furqan", "name_ru": "Аль-Фуркаан", "name_ar": "الفرقان", "ayahs": 77},
+    {"number": 26, "name": "Ash-Shuara", "name_ru": "Аш-Шуара", "name_ar": "الشعراء", "ayahs": 227},
+    {"number": 27, "name": "An-Naml", "name_ru": "Ан-Намль", "name_ar": "النمل", "ayahs": 93},
+    {"number": 28, "name": "Al-Qasas", "name_ru": "Аль-Касас", "name_ar": "القصص", "ayahs": 88},
+    {"number": 29, "name": "Al-Ankabut", "name_ru": "Аль-Анкабут", "name_ar": "العنكبوت", "ayahs": 69},
+    {"number": 30, "name": "Ar-Rum", "name_ru": "Ар-Рум", "name_ar": "الروم", "ayahs": 60},
+    {"number": 31, "name": "Luqman", "name_ru": "Лукман", "name_ar": "لقمان", "ayahs": 34},
+    {"number": 32, "name": "As-Sajdah", "name_ru": "Ас-Саджда", "name_ar": "السجدة", "ayahs": 30},
+    {"number": 33, "name": "Al-Ahzab", "name_ru": "Аль-Ахзаб", "name_ar": "الأحزاب", "ayahs": 73},
+    {"number": 34, "name": "Saba", "name_ru": "Саба", "name_ar": "سبإ", "ayahs": 54},
+    {"number": 35, "name": "Fatir", "name_ru": "Фатыр", "name_ar": "فاطر", "ayahs": 45},
+    {"number": 36, "name": "Ya-Sin", "name_ru": "Ясин", "name_ar": "يس", "ayahs": 83},
+    {"number": 37, "name": "As-Saffat", "name_ru": "Ас-Саффат", "name_ar": "الصافات", "ayahs": 182},
+    {"number": 38, "name": "Sad", "name_ru": "Сад", "name_ar": "ص", "ayahs": 88},
+    {"number": 39, "name": "Az-Zumar", "name_ru": "Аз-Зумар", "name_ar": "الزمر", "ayahs": 75},
+    {"number": 40, "name": "Ghafir", "name_ru": "Гафир", "name_ar": "غافر", "ayahs": 85},
+    {"number": 41, "name": "Fussilat", "name_ru": "Фуссылят", "name_ar": "فصلت", "ayahs": 54},
+    {"number": 42, "name": "Ash-Shura", "name_ru": "Аш-Шура", "name_ar": "الشورى", "ayahs": 53},
+    {"number": 43, "name": "Az-Zukhruf", "name_ru": "Аз-Зухруф", "name_ar": "الزخرف", "ayahs": 89},
+    {"number": 44, "name": "Ad-Dukhan", "name_ru": "Ад-Духан", "name_ar": "الدخان", "ayahs": 59},
+    {"number": 45, "name": "Al-Jathiyah", "name_ru": "Аль-Джасийа", "name_ar": "الجاثية", "ayahs": 37},
+    {"number": 46, "name": "Al-Ahqaf", "name_ru": "Аль-Ахкааф", "name_ar": "الأحقاف", "ayahs": 35},
+    {"number": 47, "name": "Muhammad", "name_ru": "Мухаммад", "name_ar": "محمد", "ayahs": 38},
+    {"number": 48, "name": "Al-Fath", "name_ru": "Аль-Фатх", "name_ar": "الفتح", "ayahs": 29},
+    {"number": 49, "name": "Al-Hujurat", "name_ru": "Аль-Худжурат", "name_ar": "الحجرات", "ayahs": 18},
+    {"number": 50, "name": "Qaf", "name_ru": "Каф", "name_ar": "ق", "ayahs": 45},
+    {"number": 51, "name": "Adh-Dhariyat", "name_ru": "Аз-Зариат", "name_ar": "الذاريات", "ayahs": 60},
+    {"number": 52, "name": "At-Tur", "name_ru": "Ат-Тур", "name_ar": "الطور", "ayahs": 49},
+    {"number": 53, "name": "An-Najm", "name_ru": "Ан-Наджм", "name_ar": "النجم", "ayahs": 62},
+    {"number": 54, "name": "Al-Qamar", "name_ru": "Аль-Камар", "name_ar": "القمر", "ayahs": 55},
+    {"number": 55, "name": "Ar-Rahman", "name_ru": "Ар-Рахман", "name_ar": "الرحمن", "ayahs": 78},
+    {"number": 56, "name": "Al-Waqiah", "name_ru": "Аль-Вакыа", "name_ar": "الواقعة", "ayahs": 96},
+    {"number": 57, "name": "Al-Hadid", "name_ru": "Аль-Хадид", "name_ar": "الحديد", "ayahs": 29},
+    {"number": 58, "name": "Al-Mujadila", "name_ru": "Аль-Муджадала", "name_ar": "المجادلة", "ayahs": 22},
+    {"number": 59, "name": "Al-Hashr", "name_ru": "Аль-Хашр", "name_ar": "الحشر", "ayahs": 24},
+    {"number": 60, "name": "Al-Mumtahanah", "name_ru": "Аль-Мумтахана", "name_ar": "الممتحنة", "ayahs": 13},
+    {"number": 61, "name": "As-Saff", "name_ru": "Ас-Сафф", "name_ar": "الصف", "ayahs": 14},
+    {"number": 62, "name": "Al-Jumuah", "name_ru": "Аль-Джумуа", "name_ar": "الجمعة", "ayahs": 11},
+    {"number": 63, "name": "Al-Munafiqun", "name_ru": "Аль-Мунафикун", "name_ar": "المنافقون", "ayahs": 11},
+    {"number": 64, "name": "At-Taghabun", "name_ru": "Ат-Тагабун", "name_ar": "التغابن", "ayahs": 18},
+    {"number": 65, "name": "At-Talaq", "name_ru": "Ат-Талак", "name_ar": "الطلاق", "ayahs": 12},
+    {"number": 66, "name": "At-Tahrim", "name_ru": "Ат-Тахрим", "name_ar": "التحريم", "ayahs": 12},
+    {"number": 67, "name": "Al-Mulk", "name_ru": "Аль-Мульк", "name_ar": "الملك", "ayahs": 30},
+    {"number": 68, "name": "Al-Qalam", "name_ru": "Аль-Калям", "name_ar": "القلم", "ayahs": 52},
+    {"number": 69, "name": "Al-Haqqah", "name_ru": "Аль-Хакка", "name_ar": "الحاقة", "ayahs": 52},
+    {"number": 70, "name": "Al-Maarij", "name_ru": "Аль-Маариж", "name_ar": "المعارج", "ayahs": 44},
+    {"number": 71, "name": "Nuh", "name_ru": "Нух", "name_ar": "نوح", "ayahs": 28},
+    {"number": 72, "name": "Al-Jinn", "name_ru": "Аль-Джинн", "name_ar": "الجن", "ayahs": 28},
+    {"number": 73, "name": "Al-Muzzammil", "name_ru": "Аль-Муззаммиль", "name_ar": "المزمل", "ayahs": 20},
+    {"number": 74, "name": "Al-Muddaththir", "name_ru": "Аль-Муддасир", "name_ar": "المدثر", "ayahs": 56},
+    {"number": 75, "name": "Al-Qiyamah", "name_ru": "Аль-Кыяма", "name_ar": "القيامة", "ayahs": 40},
+    {"number": 76, "name": "Al-Insan", "name_ru": "Аль-Инсан", "name_ar": "الإنسان", "ayahs": 31},
+    {"number": 77, "name": "Al-Mursalat", "name_ru": "Аль-Мурсалят", "name_ar": "المرسلات", "ayahs": 50},
+    {"number": 78, "name": "An-Naba", "name_ru": "Ан-Наба", "name_ar": "النبأ", "ayahs": 40},
+    {"number": 79, "name": "An-Naziat", "name_ru": "Ан-Назиат", "name_ar": "النازعات", "ayahs": 46},
+    {"number": 80, "name": "Abasa", "name_ru": "Абаса", "name_ar": "عبس", "ayahs": 42},
+    {"number": 81, "name": "At-Takwir", "name_ru": "Ат-Таквир", "name_ar": "التكوير", "ayahs": 29},
+    {"number": 82, "name": "Al-Infitar", "name_ru": "Аль-Инфитар", "name_ar": "الانفطار", "ayahs": 19},
+    {"number": 83, "name": "Al-Mutaffifin", "name_ru": "Аль-Мутаффифин", "name_ar": "المطففين", "ayahs": 36},
+    {"number": 84, "name": "Al-Inshiqaq", "name_ru": "Аль-Иншикак", "name_ar": "الانشقاق", "ayahs": 25},
+    {"number": 85, "name": "Al-Buruj", "name_ru": "Аль-Бурудж", "name_ar": "البروج", "ayahs": 22},
+    {"number": 86, "name": "At-Tariq", "name_ru": "Ат-Тарик", "name_ar": "الطارق", "ayahs": 17},
+    {"number": 87, "name": "Al-Ala", "name_ru": "Аль-Аала", "name_ar": "الأعلى", "ayahs": 19},
+    {"number": 88, "name": "Al-Ghashiyah", "name_ru": "Аль-Гашия", "name_ar": "الغاشية", "ayahs": 26},
+    {"number": 89, "name": "Al-Fajr", "name_ru": "Аль-Фаджр", "name_ar": "الفجر", "ayahs": 30},
+    {"number": 90, "name": "Al-Balad", "name_ru": "Аль-Балад", "name_ar": "البلد", "ayahs": 20},
+    {"number": 91, "name": "Ash-Shams", "name_ru": "Аш-Шамс", "name_ar": "الشمس", "ayahs": 15},
+    {"number": 92, "name": "Al-Layl", "name_ru": "Аль-Лейль", "name_ar": "الليل", "ayahs": 21},
+    {"number": 93, "name": "Ad-Duha", "name_ru": "Ад-Духа", "name_ar": "الضحى", "ayahs": 11},
+    {"number": 94, "name": "Ash-Sharh", "name_ru": "Аш-Шарх", "name_ar": "الشرح", "ayahs": 8},
+    {"number": 95, "name": "At-Tin", "name_ru": "Ат-Тин", "name_ar": "التين", "ayahs": 8},
+    {"number": 96, "name": "Al-Alaq", "name_ru": "Аль-Аляк", "name_ar": "العلق", "ayahs": 19},
+    {"number": 97, "name": "Al-Qadr", "name_ru": "Аль-Кадр", "name_ar": "القدر", "ayahs": 5},
+    {"number": 98, "name": "Al-Bayyinah", "name_ru": "Аль-Баййина", "name_ar": "البينة", "ayahs": 8},
+    {"number": 99, "name": "Az-Zalzalah", "name_ru": "Аз-Зальзаля", "name_ar": "الزلزلة", "ayahs": 8},
+    {"number": 100, "name": "Al-Adiyat", "name_ru": "Аль-Адийат", "name_ar": "العاديات", "ayahs": 11},
+    {"number": 101, "name": "Al-Qariah", "name_ru": "Аль-Кариа", "name_ar": "القارعة", "ayahs": 11},
+    {"number": 102, "name": "At-Takathur", "name_ru": "Ат-Такасур", "name_ar": "التكاثر", "ayahs": 8},
+    {"number": 103, "name": "Al-Asr", "name_ru": "Аль-Аср", "name_ar": "العصر", "ayahs": 3},
+    {"number": 104, "name": "Al-Humazah", "name_ru": "Аль-Хумаза", "name_ar": "الهمزة", "ayahs": 9},
+    {"number": 105, "name": "Al-Fil", "name_ru": "Аль-Филь", "name_ar": "الفيل", "ayahs": 5},
+    {"number": 106, "name": "Quraysh", "name_ru": "Курайш", "name_ar": "قريش", "ayahs": 4},
+    {"number": 107, "name": "Al-Maun", "name_ru": "Аль-Маун", "name_ar": "الماعون", "ayahs": 7},
+    {"number": 108, "name": "Al-Kawthar", "name_ru": "Аль-Каусар", "name_ar": "الكوثر", "ayahs": 3},
+    {"number": 109, "name": "Al-Kafirun", "name_ru": "Аль-Кафирун", "name_ar": "الكافرون", "ayahs": 6},
+    {"number": 110, "name": "An-Nasr", "name_ru": "Ан-Наср", "name_ar": "النصر", "ayahs": 3},
+    {"number": 111, "name": "Al-Masad", "name_ru": "Аль-Масад", "name_ar": "المسد", "ayahs": 5},
+    {"number": 112, "name": "Al-Ikhlas", "name_ru": "Аль-Ихляс", "name_ar": "الإخلاص", "ayahs": 4},
+    {"number": 113, "name": "Al-Falaq", "name_ru": "Аль-Фаляк", "name_ar": "الفلق", "ayahs": 5},
+    {"number": 114, "name": "An-Nas", "name_ru": "Ан-Нас", "name_ar": "الناس", "ayahs": 6},
+]
+
+def _get_surah(num: int):
+    return next((s for s in ALL_SURAHS if s["number"] == num), None)
+
+def _hifz_phase(count: int) -> str:
+    if count <= 20: return "Начало"
+    if count <= 100: return "Середина"
+    return "Финиш"
+
+def _audio_url(surah: int, ayah: int) -> str:
+    return f"https://everyayah.com/data/Abdul_Basit_Murattal_192kbps/{str(surah).zfill(3)}{str(ayah).zfill(3)}.mp3"
+
+
+class HifzStartRequest(BaseModel):
+    user_id: str
+    surah_number: int
+    evening_hour: int = 21
+    morning_hour: int = 7
+
+class HifzLessonComplete(BaseModel):
+    user_id: str
+    ayahs: List[Dict[str, Any]]
+
+class HifzReviewComplete(BaseModel):
+    user_id: str
+
+
+@api_router.get("/quran/hifz/surahs")
+async def hifz_get_surahs():
+    return {"surahs": ALL_SURAHS}
+
+
+@api_router.post("/quran/hifz/program/start")
+async def hifz_start_program(data: HifzStartRequest):
+    try:
+        s = _get_surah(data.surah_number)
+        if not s:
+            raise HTTPException(status_code=400, detail="Неверный номер суры")
+
+        existing = supabase.table("quran_hifz_program").select("id").eq("user_id", data.user_id).execute()
+        program_data = {
+            "current_surah": data.surah_number,
+            "current_ayah": 1,
+            "is_active": True,
+            "evening_hour": data.evening_hour,
+            "morning_hour": data.morning_hour,
+            "started_at": datetime.utcnow().isoformat(),
+            "current_block_index": 0,
+            "last_block_date": None,
+            "last_lesson_date": None,
+            "last_review_date": None,
+            "updated_at": datetime.utcnow().isoformat(),
+        }
+        if existing.data:
+            r = supabase.table("quran_hifz_program").update(program_data).eq("user_id", data.user_id).execute()
+        else:
+            program_data["user_id"] = data.user_id
+            r = supabase.table("quran_hifz_program").insert(program_data).execute()
+        return r.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"hifz start: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/quran/hifz/program/{user_id}")
+async def hifz_get_program(user_id: str):
+    try:
+        r = supabase.table("quran_hifz_program").select("*").eq("user_id", user_id).execute()
+        if not r.data:
+            return {"active": False, "program": None}
+
+        prog = r.data[0]
+        surah_info = _get_surah(prog["current_surah"])
+
+        pr = supabase.table("quran_hifz_progress").select("id", count="exact")\
+            .eq("user_id", user_id).eq("surah", prog["current_surah"]).execute()
+        learned = pr.count or 0
+        total = surah_info["ayahs"] if surah_info else 0
+        pct = round(learned / total * 100, 1) if total > 0 else 0.0
+
+        return {
+            "active": prog["is_active"],
+            "program": {
+                **prog,
+                "surah_name": surah_info["name"] if surah_info else "",
+                "surah_name_ru": surah_info["name_ru"] if surah_info else "",
+                "surah_name_ar": surah_info["name_ar"] if surah_info else "",
+                "phase": _hifz_phase(learned),
+                "learned_count": learned,
+                "total_ayahs": total,
+                "progress_pct": pct,
+            }
+        }
+    except Exception as e:
+        err_str = str(e)
+        if "schema cache" in err_str or "PGRST205" in err_str or "does not exist" in err_str:
+            return {"active": False, "program": None, "sql_needed": True}
+        logger.error(f"hifz program: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.put("/quran/hifz/program/settings")
+async def hifz_update_settings(data: dict):
+    try:
+        user_id = data.get("user_id")
+        update = {"updated_at": datetime.utcnow().isoformat()}
+        if "evening_hour" in data:
+            update["evening_hour"] = data["evening_hour"]
+        if "morning_hour" in data:
+            update["morning_hour"] = data["morning_hour"]
+        supabase.table("quran_hifz_program").update(update).eq("user_id", user_id).execute()
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.put("/quran/hifz/program/change-surah")
+async def hifz_change_surah(data: dict):
+    try:
+        user_id = data.get("user_id")
+        new_surah = data.get("surah_number")
+        s = _get_surah(new_surah)
+        if not s:
+            raise HTTPException(status_code=400, detail="Неверный номер суры")
+        supabase.table("quran_hifz_program").update({
+            "current_surah": new_surah, "current_ayah": 1,
+            "current_block_index": 0, "last_block_date": None,
+            "updated_at": datetime.utcnow().isoformat(),
+        }).eq("user_id", user_id).execute()
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/quran/hifz/lesson/{user_id}")
+async def hifz_get_lesson(user_id: str):
+    try:
+        r = supabase.table("quran_hifz_program").select("*").eq("user_id", user_id).execute()
+        if not r.data:
+            raise HTTPException(status_code=404, detail="Программа не найдена")
+        prog = r.data[0]
+        s = prog["current_surah"]
+        a = prog["current_ayah"]
+        surah_info = _get_surah(s)
+        if not surah_info:
+            raise HTTPException(status_code=404, detail="Сура не найдена")
+
+        total = surah_info["ayahs"]
+        is_first = (a == 1)
+        remaining = total - a + 1
+
+        # Count learned for phase
+        pr = supabase.table("quran_hifz_progress").select("id", count="exact")\
+            .eq("user_id", user_id).eq("surah", s).execute()
+        learned = pr.count or 0
+        lesson_num = learned // 2 + 1
+
+        ayahs = []
+        # Басмала только на первый урок суры
+        if is_first:
+            ayahs.append({"surah": 1, "ayah": 1, "is_basmala": True, "audio_url": _audio_url(1, 1)})
+
+        # 2 новых аята (или все оставшиеся если мало)
+        count = min(2, remaining) if remaining >= 1 else 0
+        for i in range(a, a + count):
+            if i <= total:
+                ayahs.append({"surah": s, "ayah": i, "is_basmala": False, "audio_url": _audio_url(s, i)})
+
+        return {
+            "lesson_number": lesson_num,
+            "surah_number": s,
+            "surah_name": surah_info["name"],
+            "surah_name_ru": surah_info["name_ru"],
+            "is_first_lesson": is_first,
+            "phase": _hifz_phase(learned),
+            "ayahs": ayahs,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"hifz lesson: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/quran/hifz/lesson/complete")
+async def hifz_complete_lesson(data: HifzLessonComplete):
+    try:
+        points = 0
+        real_ayahs = [a for a in data.ayahs if not (a.get("surah") == 1 and a.get("ayah") == 1)]
+
+        for ay in real_ayahs:
+            ex = supabase.table("quran_hifz_progress").select("id")\
+                .eq("user_id", data.user_id).eq("surah", ay["surah"]).eq("ayah", ay["ayah"]).execute()
+            if not ex.data:
+                supabase.table("quran_hifz_progress").insert({
+                    "user_id": data.user_id, "surah": ay["surah"], "ayah": ay["ayah"],
+                    "learned_at": datetime.utcnow().isoformat(),
+                }).execute()
+                points += 10
+
+        # Обновить позицию
+        r = supabase.table("quran_hifz_program").select("*").eq("user_id", data.user_id).execute()
+        surah_completed = False
+        if r.data and real_ayahs:
+            prog = r.data[0]
+            cur_s = prog["current_surah"]
+            surah_info = _get_surah(cur_s)
+            max_a = max((a["ayah"] for a in real_ayahs if a["surah"] == cur_s), default=prog["current_ayah"])
+            new_a = max_a + 1
+            surah_completed = new_a > surah_info["ayahs"]
+            supabase.table("quran_hifz_program").update({
+                "current_ayah": new_a,
+                "last_lesson_date": datetime.utcnow().date().isoformat(),
+                "updated_at": datetime.utcnow().isoformat(),
+            }).eq("user_id", data.user_id).execute()
+
+        # Начислить очки
+        if points > 0:
+            u = supabase.table("users").select("zikr_count").eq("id", data.user_id).execute()
+            if u.data:
+                cur = u.data[0].get("zikr_count") or 0
+                supabase.table("users").update({"zikr_count": cur + points}).eq("id", data.user_id).execute()
+
+        return {"success": True, "points_earned": points, "surah_completed": surah_completed}
+    except Exception as e:
+        logger.error(f"hifz complete lesson: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/quran/hifz/review/{user_id}")
+async def hifz_get_review(user_id: str):
+    try:
+        r = supabase.table("quran_hifz_program").select("*").eq("user_id", user_id).execute()
+        if not r.data:
+            raise HTTPException(status_code=404, detail="Программа не найдена")
+        prog = r.data[0]
+        cur_s = prog["current_surah"]
+
+        # Все выученные аяты текущей суры
+        pr = supabase.table("quran_hifz_progress").select("surah,ayah,learned_at")\
+            .eq("user_id", user_id).eq("surah", cur_s).order("ayah").execute()
+        learned = pr.data or []
+        total = len(learned)
+
+        def make_url(s, a):
+            return _audio_url(s, a)
+
+        # Вчерашние аяты (последние 24 часа)
+        yesterday_dt = (datetime.utcnow() - timedelta(hours=24)).isoformat()
+        yesterday_ayahs = [
+            {"surah": a["surah"], "ayah": a["ayah"], "audio_url": make_url(a["surah"], a["ayah"])}
+            for a in learned if (a.get("learned_at") or "") >= yesterday_dt
+        ]
+
+        if total < 25:
+            # Panel A
+            all_ayahs = [{"surah": a["surah"], "ayah": a["ayah"], "audio_url": make_url(a["surah"], a["ayah"])} for a in learned]
+            return {"mode": "panel_a", "all_ayahs": all_ayahs, "yesterday_ayahs": [], "current_block": None}
+
+        # Panel B — блоки по 25
+        blocks = [learned[i:i+25] for i in range(0, total, 25) if len(learned[i:i+25]) == 25]
+        if not blocks:
+            all_ayahs = [{"surah": a["surah"], "ayah": a["ayah"], "audio_url": make_url(a["surah"], a["ayah"])} for a in learned]
+            return {"mode": "panel_a", "all_ayahs": all_ayahs, "yesterday_ayahs": [], "current_block": None}
+
+        today = datetime.utcnow().date().isoformat()
+        idx = prog.get("current_block_index") or 0
+        if idx >= len(blocks): idx = 0
+
+        if prog.get("last_block_date") != today:
+            idx = (idx + 1) % len(blocks)
+            supabase.table("quran_hifz_program").update({
+                "current_block_index": idx, "last_block_date": today,
+                "updated_at": datetime.utcnow().isoformat(),
+            }).eq("user_id", user_id).execute()
+
+        block = blocks[idx]
+        yesterday_ids = {(a["surah"], a["ayah"]) for a in yesterday_ayahs}
+        block_filtered = [
+            {"surah": a["surah"], "ayah": a["ayah"], "audio_url": make_url(a["surah"], a["ayah"])}
+            for a in block if (a["surah"], a["ayah"]) not in yesterday_ids
+        ]
+
+        return {
+            "mode": "panel_b",
+            "all_ayahs": [],
+            "yesterday_ayahs": yesterday_ayahs,
+            "current_block": {
+                "block_number": idx + 1,
+                "ayahs": block_filtered,
+                "start_ayah": block[0]["ayah"],
+                "end_ayah": block[-1]["ayah"],
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"hifz review: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/quran/hifz/review/complete")
+async def hifz_complete_review(data: HifzReviewComplete):
+    try:
+        points = 5
+        u = supabase.table("users").select("zikr_count").eq("id", data.user_id).execute()
+        if u.data:
+            cur = u.data[0].get("zikr_count") or 0
+            supabase.table("users").update({"zikr_count": cur + points}).eq("id", data.user_id).execute()
+
+        supabase.table("quran_hifz_program").update({
+            "last_review_date": datetime.utcnow().date().isoformat(),
+            "updated_at": datetime.utcnow().isoformat(),
+        }).eq("user_id", data.user_id).execute()
+
+        return {"success": True, "points_earned": points}
+    except Exception as e:
+        logger.error(f"hifz complete review: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/quran/hifz/ayah/{surah}/{ayah}")
+async def hifz_get_ayah(surah: int, ayah: int):
+    try:
+        async with httpx.AsyncClient(timeout=8) as client:
+            resp = await client.get(
+                f"https://api.alquran.cloud/v1/ayah/{surah}:{ayah}/editions/quran-uthmani,en.transliteration"
+            )
+            d = resp.json()
+        editions = d.get("data", [])
+        arabic = editions[0] if editions else {}
+        translit = editions[1] if len(editions) > 1 else {}
+        return {
+            "surah": surah, "ayah": ayah,
+            "arabic_text": arabic.get("text", ""),
+            "transliteration": translit.get("text", ""),
+            "surah_name": arabic.get("surah", {}).get("englishName", ""),
+            "audio_url": _audio_url(surah, ayah),
+        }
+    except Exception:
+        return {
+            "surah": surah, "ayah": ayah,
+            "arabic_text": "", "transliteration": "",
+            "surah_name": "", "audio_url": _audio_url(surah, ayah),
+        }
+
+
+@api_router.get("/quran/hifz/stats/{user_id}")
+async def hifz_get_stats(user_id: str):
+    try:
+        all_pr = supabase.table("quran_hifz_progress").select("surah,ayah").eq("user_id", user_id).execute()
+        total = len(all_pr.data or [])
+
+        by_surah: Dict[int, int] = {}
+        for p in (all_pr.data or []):
+            by_surah[p["surah"]] = by_surah.get(p["surah"], 0) + 1
+        completed_surahs = sum(1 for sn, cnt in by_surah.items() if _get_surah(sn) and cnt >= _get_surah(sn)["ayahs"])
+
+        prog_r = supabase.table("quran_hifz_program").select("started_at").eq("user_id", user_id).execute()
+        started_at = prog_r.data[0]["started_at"] if prog_r.data else None
+
+        u = supabase.table("users").select("zikr_count").eq("id", user_id).execute()
+        points = u.data[0].get("zikr_count", 0) if u.data else 0
+
+        return {"total_ayahs": total, "completed_surahs": completed_surahs, "points": points, "started_at": started_at}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
