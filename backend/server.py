@@ -2570,26 +2570,27 @@ async def hifz_start_program(data: HifzStartRequest):
         if not s:
             raise HTTPException(status_code=400, detail="Неверный номер суры")
 
-        existing = supabase.table("quran_hifz_program").select("id").eq("user_id", data.user_id).execute()
+        existing = supabase.table("quran_program").select("id").eq("user_id", data.user_id).execute()
+        now = datetime.utcnow().isoformat()
         program_data = {
             "current_surah": data.surah_number,
             "current_ayah": 1,
             "is_active": True,
             "evening_hour": data.evening_hour,
             "morning_hour": data.morning_hour,
-            "started_at": datetime.utcnow().isoformat(),
+            "started_at": now,
+            "study_week": 1,
             "current_block_index": 0,
             "last_block_date": None,
             "last_lesson_date": None,
-            "last_review_date": None,
-            "updated_at": datetime.utcnow().isoformat(),
         }
         if existing.data:
-            r = supabase.table("quran_hifz_program").update(program_data).eq("user_id", data.user_id).execute()
+            r = supabase.table("quran_program").update(program_data).eq("user_id", data.user_id).execute()
         else:
             program_data["user_id"] = data.user_id
-            r = supabase.table("quran_hifz_program").insert(program_data).execute()
-        return r.data[0]
+            program_data["created_at"] = now
+            r = supabase.table("quran_program").insert(program_data).execute()
+        return {"success": True, "surah": data.surah_number}
     except HTTPException:
         raise
     except Exception as e:
@@ -2600,14 +2601,14 @@ async def hifz_start_program(data: HifzStartRequest):
 @api_router.get("/quran/hifz/program/{user_id}")
 async def hifz_get_program(user_id: str):
     try:
-        r = supabase.table("quran_hifz_program").select("*").eq("user_id", user_id).execute()
+        r = supabase.table("quran_program").select("*").eq("user_id", user_id).execute()
         if not r.data:
             return {"active": False, "program": None}
 
         prog = r.data[0]
         surah_info = _get_surah(prog["current_surah"])
 
-        pr = supabase.table("quran_hifz_progress").select("id", count="exact")\
+        pr = supabase.table("quran_progress").select("id", count="exact")\
             .eq("user_id", user_id).eq("surah", prog["current_surah"]).execute()
         learned = pr.count or 0
         total = surah_info["ayahs"] if surah_info else 0
@@ -2616,7 +2617,7 @@ async def hifz_get_program(user_id: str):
         return {
             "active": prog["is_active"],
             "program": {
-                **prog,
+                **{k: v for k, v in prog.items() if k != "telegram_id"},
                 "surah_name": surah_info["name"] if surah_info else "",
                 "surah_name_ru": surah_info["name_ru"] if surah_info else "",
                 "surah_name_ar": surah_info["name_ar"] if surah_info else "",
@@ -2630,6 +2631,8 @@ async def hifz_get_program(user_id: str):
         err_str = str(e)
         if "schema cache" in err_str or "PGRST205" in err_str or "does not exist" in err_str:
             return {"active": False, "program": None, "sql_needed": True}
+        if "invalid input syntax for type uuid" in err_str:
+            return {"active": False, "program": None}
         logger.error(f"hifz program: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -2638,12 +2641,13 @@ async def hifz_get_program(user_id: str):
 async def hifz_update_settings(data: dict):
     try:
         user_id = data.get("user_id")
-        update = {"updated_at": datetime.utcnow().isoformat()}
+        update = {}
         if "evening_hour" in data:
             update["evening_hour"] = data["evening_hour"]
         if "morning_hour" in data:
             update["morning_hour"] = data["morning_hour"]
-        supabase.table("quran_hifz_program").update(update).eq("user_id", user_id).execute()
+        if update:
+            supabase.table("quran_program").update(update).eq("user_id", user_id).execute()
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -2657,10 +2661,9 @@ async def hifz_change_surah(data: dict):
         s = _get_surah(new_surah)
         if not s:
             raise HTTPException(status_code=400, detail="Неверный номер суры")
-        supabase.table("quran_hifz_program").update({
+        supabase.table("quran_program").update({
             "current_surah": new_surah, "current_ayah": 1,
             "current_block_index": 0, "last_block_date": None,
-            "updated_at": datetime.utcnow().isoformat(),
         }).eq("user_id", user_id).execute()
         return {"success": True}
     except HTTPException:
@@ -2672,7 +2675,7 @@ async def hifz_change_surah(data: dict):
 @api_router.get("/quran/hifz/lesson/{user_id}")
 async def hifz_get_lesson(user_id: str):
     try:
-        r = supabase.table("quran_hifz_program").select("*").eq("user_id", user_id).execute()
+        r = supabase.table("quran_program").select("*").eq("user_id", user_id).execute()
         if not r.data:
             raise HTTPException(status_code=404, detail="Программа не найдена")
         prog = r.data[0]
@@ -2686,18 +2689,15 @@ async def hifz_get_lesson(user_id: str):
         is_first = (a == 1)
         remaining = total - a + 1
 
-        # Count learned for phase
-        pr = supabase.table("quran_hifz_progress").select("id", count="exact")\
+        pr = supabase.table("quran_progress").select("id", count="exact")\
             .eq("user_id", user_id).eq("surah", s).execute()
         learned = pr.count or 0
         lesson_num = learned // 2 + 1
 
         ayahs = []
-        # Басмала только на первый урок суры
         if is_first:
             ayahs.append({"surah": 1, "ayah": 1, "is_basmala": True, "audio_url": _audio_url(1, 1)})
 
-        # 2 новых аята (или все оставшиеся если мало)
         count = min(2, remaining) if remaining >= 1 else 0
         for i in range(a, a + count):
             if i <= total:
@@ -2724,19 +2724,25 @@ async def hifz_complete_lesson(data: HifzLessonComplete):
     try:
         points = 0
         real_ayahs = [a for a in data.ayahs if not (a.get("surah") == 1 and a.get("ayah") == 1)]
+        now = datetime.utcnow().isoformat()
 
         for ay in real_ayahs:
-            ex = supabase.table("quran_hifz_progress").select("id")\
+            ex = supabase.table("quran_progress").select("id")\
                 .eq("user_id", data.user_id).eq("surah", ay["surah"]).eq("ayah", ay["ayah"]).execute()
             if not ex.data:
-                supabase.table("quran_hifz_progress").insert({
-                    "user_id": data.user_id, "surah": ay["surah"], "ayah": ay["ayah"],
-                    "learned_at": datetime.utcnow().isoformat(),
+                supabase.table("quran_progress").insert({
+                    "user_id": data.user_id,
+                    "surah": ay["surah"],
+                    "ayah": ay["ayah"],
+                    "learned_at": now,
+                    "review_count": 0,
+                    "status": "learned",
+                    "week_learned": 1,
+                    "created_at": now,
                 }).execute()
                 points += 10
 
-        # Обновить позицию
-        r = supabase.table("quran_hifz_program").select("*").eq("user_id", data.user_id).execute()
+        r = supabase.table("quran_program").select("*").eq("user_id", data.user_id).execute()
         surah_completed = False
         if r.data and real_ayahs:
             prog = r.data[0]
@@ -2745,13 +2751,11 @@ async def hifz_complete_lesson(data: HifzLessonComplete):
             max_a = max((a["ayah"] for a in real_ayahs if a["surah"] == cur_s), default=prog["current_ayah"])
             new_a = max_a + 1
             surah_completed = new_a > surah_info["ayahs"]
-            supabase.table("quran_hifz_program").update({
+            supabase.table("quran_program").update({
                 "current_ayah": new_a,
                 "last_lesson_date": datetime.utcnow().date().isoformat(),
-                "updated_at": datetime.utcnow().isoformat(),
             }).eq("user_id", data.user_id).execute()
 
-        # Начислить очки
         if points > 0:
             u = supabase.table("users").select("zikr_count").eq("id", data.user_id).execute()
             if u.data:
@@ -2767,14 +2771,13 @@ async def hifz_complete_lesson(data: HifzLessonComplete):
 @api_router.get("/quran/hifz/review/{user_id}")
 async def hifz_get_review(user_id: str):
     try:
-        r = supabase.table("quran_hifz_program").select("*").eq("user_id", user_id).execute()
+        r = supabase.table("quran_program").select("*").eq("user_id", user_id).execute()
         if not r.data:
             raise HTTPException(status_code=404, detail="Программа не найдена")
         prog = r.data[0]
         cur_s = prog["current_surah"]
 
-        # Все выученные аяты текущей суры
-        pr = supabase.table("quran_hifz_progress").select("surah,ayah,learned_at")\
+        pr = supabase.table("quran_progress").select("surah,ayah,learned_at")\
             .eq("user_id", user_id).eq("surah", cur_s).order("ayah").execute()
         learned = pr.data or []
         total = len(learned)
@@ -2782,7 +2785,6 @@ async def hifz_get_review(user_id: str):
         def make_url(s, a):
             return _audio_url(s, a)
 
-        # Вчерашние аяты (последние 24 часа)
         yesterday_dt = (datetime.utcnow() - timedelta(hours=24)).isoformat()
         yesterday_ayahs = [
             {"surah": a["surah"], "ayah": a["ayah"], "audio_url": make_url(a["surah"], a["ayah"])}
@@ -2790,11 +2792,9 @@ async def hifz_get_review(user_id: str):
         ]
 
         if total < 25:
-            # Panel A
             all_ayahs = [{"surah": a["surah"], "ayah": a["ayah"], "audio_url": make_url(a["surah"], a["ayah"])} for a in learned]
             return {"mode": "panel_a", "all_ayahs": all_ayahs, "yesterday_ayahs": [], "current_block": None}
 
-        # Panel B — блоки по 25
         blocks = [learned[i:i+25] for i in range(0, total, 25) if len(learned[i:i+25]) == 25]
         if not blocks:
             all_ayahs = [{"surah": a["surah"], "ayah": a["ayah"], "audio_url": make_url(a["surah"], a["ayah"])} for a in learned]
@@ -2806,9 +2806,8 @@ async def hifz_get_review(user_id: str):
 
         if prog.get("last_block_date") != today:
             idx = (idx + 1) % len(blocks)
-            supabase.table("quran_hifz_program").update({
+            supabase.table("quran_program").update({
                 "current_block_index": idx, "last_block_date": today,
-                "updated_at": datetime.utcnow().isoformat(),
             }).eq("user_id", user_id).execute()
 
         block = blocks[idx]
@@ -2845,9 +2844,8 @@ async def hifz_complete_review(data: HifzReviewComplete):
             cur = u.data[0].get("zikr_count") or 0
             supabase.table("users").update({"zikr_count": cur + points}).eq("id", data.user_id).execute()
 
-        supabase.table("quran_hifz_program").update({
+        supabase.table("quran_program").update({
             "last_review_date": datetime.utcnow().date().isoformat(),
-            "updated_at": datetime.utcnow().isoformat(),
         }).eq("user_id", data.user_id).execute()
 
         return {"success": True, "points_earned": points}
@@ -2885,7 +2883,7 @@ async def hifz_get_ayah(surah: int, ayah: int):
 @api_router.get("/quran/hifz/stats/{user_id}")
 async def hifz_get_stats(user_id: str):
     try:
-        all_pr = supabase.table("quran_hifz_progress").select("surah,ayah").eq("user_id", user_id).execute()
+        all_pr = supabase.table("quran_progress").select("surah,ayah").eq("user_id", user_id).execute()
         total = len(all_pr.data or [])
 
         by_surah: Dict[int, int] = {}
@@ -2893,7 +2891,7 @@ async def hifz_get_stats(user_id: str):
             by_surah[p["surah"]] = by_surah.get(p["surah"], 0) + 1
         completed_surahs = sum(1 for sn, cnt in by_surah.items() if _get_surah(sn) and cnt >= _get_surah(sn)["ayahs"])
 
-        prog_r = supabase.table("quran_hifz_program").select("started_at").eq("user_id", user_id).execute()
+        prog_r = supabase.table("quran_program").select("started_at").eq("user_id", user_id).execute()
         started_at = prog_r.data[0]["started_at"] if prog_r.data else None
 
         u = supabase.table("users").select("zikr_count").eq("id", user_id).execute()
