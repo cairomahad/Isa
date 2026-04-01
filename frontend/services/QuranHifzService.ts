@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Cache, TTL } from './cache';
 
-const API = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+const API = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://tazakkur-production-c8c9.up.railway.app';
 const AYAH_CACHE_PREFIX = 'hifz_ayah_';
 
 export interface HifzSurah {
@@ -78,8 +79,13 @@ export const HifzService = {
   },
 
   async getProgram(userId: string): Promise<{ active: boolean; program: HifzProgram | null }> {
+    const cacheKey = `hifz_program_${userId}`;
+    const cached = await Cache.get<{ active: boolean; program: HifzProgram | null }>(cacheKey, 5 * 60 * 1000);
+    if (cached) return cached;
     const r = await fetch(`${API}/api/quran/hifz/program/${userId}`);
-    return r.json();
+    const data = await r.json();
+    await Cache.set(cacheKey, data);
+    return data;
   },
 
   async startProgram(userId: string, surahNumber: number, eveningHour = 21, morningHour = 7): Promise<void> {
@@ -118,6 +124,8 @@ export const HifzService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: userId, ayahs }),
     });
+    // Clear program cache so next load shows fresh progress
+    await Cache.clear(`hifz_program_${userId}`);
     return r.json();
   },
 

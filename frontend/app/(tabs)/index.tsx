@@ -127,7 +127,12 @@ export default function HomeScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchData(true);  // force refresh clears cache
+    // Only clear prayers cache — hadith is fixed for the whole day
+    const citySlug = CITIES.find(c => c.label === selectedCity)?.slug || 'moscow';
+    const today = new Date().toISOString().split('T')[0];
+    await Cache.clear(`cache_prayers_${citySlug}_${today}`);
+    await fetchData(false);
+    setRefreshing(false);
     setRefreshing(false);
   }, [fetchData]);
 

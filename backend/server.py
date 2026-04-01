@@ -8,7 +8,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import httpx
 from supabase import create_client, Client
 import random
@@ -378,8 +378,10 @@ async def get_daily_hadith():
         if total_count == 0:
             raise HTTPException(status_code=404, detail="No hadiths found")
         
-        # Get random offset
-        offset = random.randint(0, max(0, total_count - 1))
+        # Deterministic daily offset — same hadith all day, changes at midnight
+        import hashlib
+        today_seed = int(hashlib.md5(datetime.now().strftime('%Y-%m-%d').encode()).hexdigest()[:8], 16)
+        offset = today_seed % max(1, total_count)
         
         # Fetch one hadith
         response = supabase.table('hadiths').select('*').range(offset, offset).execute()
@@ -678,7 +680,9 @@ async def get_lessons(user_id: str = Query(..., description="User ID")):
                         
                         unlock_datetime = last_datetime + timedelta(days=3)
                         
-                        if datetime.now() < unlock_datetime:
+                        if unlock_datetime.tzinfo is None:
+                            unlock_datetime = unlock_datetime.replace(tzinfo=timezone.utc)
+                        if datetime.now(timezone.utc) < unlock_datetime:
                             is_locked = True
                             unlock_date = unlock_datetime.strftime('%Y-%m-%d')
                         else:
@@ -1068,33 +1072,58 @@ async def review_homework(request: ReviewHomeworkRequest):
 
 # ========== ADMIN API ==========
 @api_router.get("/home/data")
-async def get_home_data(user_id: str = Query(...), city: str = Query("moscow")):
+async def get_home_data(user_id: str = Query(default=""), city: str = Query("moscow")):
     """Combined home screen data — one request instead of 3"""
     try:
         import asyncio
 
-        # Parallel: hadith + prayers + user points
         async def fetch_hadith():
             try:
+                import hashlib
                 count_r = supabase.table('hadiths').select('id', count='exact').execute()
                 total = count_r.count or 0
                 if total == 0: return None
-                offset = random.randint(0, max(0, total - 1))
+                # Deterministic daily seed — same hadith all day
+                today_seed = int(hashlib.md5(datetime.now().strftime('%Y-%m-%d').encode()).hexdigest()[:8], 16)
+                offset = today_seed % max(1, total)
                 r = supabase.table('hadiths').select('*').range(offset, offset).execute()
                 if r.data:
                     d = r.data[0]
                     return {'id': str(d.get('id', '')), 'russian_text': d.get('text_ru', ''), 'text_ru': d.get('text_ru', '')}
-            except Exception: pass
+            except Exception as e:
+                logger.warning(f"fetch_hadith error: {e}")
             return None
 
         async def fetch_prayers():
             try:
-                r = supabase.table('prayer_times').select('*').eq('city_slug', city).execute()
-                if r.data: return r.data[0]
-            except Exception: pass
-            return None
+                city_key = city.lower()
+                city_data = CITIES.get(city_key)
+                if not city_data:
+                    return None
+                async with httpx.AsyncClient(follow_redirects=True) as client:
+                    resp = await client.get("http://api.aladhan.com/v1/timings", params={
+                        "latitude": city_data["lat"],
+                        "longitude": city_data["lon"],
+                        "method": 2,
+                    }, timeout=8.0)
+                    resp.raise_for_status()
+                    timings = resp.json()["data"]["timings"]
+                    return {
+                        "fajr": timings["Fajr"],
+                        "sunrise": timings["Sunrise"],
+                        "dhuhr": timings["Dhuhr"],
+                        "asr": timings["Asr"],
+                        "maghrib": timings["Maghrib"],
+                        "isha": timings["Isha"],
+                        "city": city_data["name"],
+                    }
+            except Exception as e:
+                logger.warning(f"fetch_prayers error: {e}")
+                return None
 
         async def fetch_user_points():
+            if not user_id:
+                return 0
             try:
                 r = supabase.table('users').select('points').eq('id', user_id).execute()
                 if r.data: return r.data[0].get('points', 0)
@@ -2086,6 +2115,7 @@ class QuizSubmitRequest(BaseModel):
     user_id: str
     video_id: str
     score: int
+    total: int = 10
 
 
 @api_router.post("/quiz/submit")
@@ -2105,6 +2135,7 @@ async def submit_quiz_result(request: QuizSubmitRequest):
         insert_data = {
             'video_id': request.video_id,
             'score': request.score,
+            'total': request.total,
             'created_at': datetime.now().isoformat(),
         }
         if telegram_id:
@@ -2926,11 +2957,23 @@ async def hifz_complete_lesson(data: HifzLessonComplete):
         real_ayahs = [a for a in data.ayahs if not (a.get("surah") == 1 and a.get("ayah") == 1)]
         now = datetime.utcnow().isoformat()
 
+        # Get telegram_id for legacy progress check
+        u_resp = supabase.table("users").select("telegram_id").eq("id", data.user_id).execute()
+        telegram_id = u_resp.data[0].get("telegram_id") if u_resp.data else None
+
         for ay in real_ayahs:
-            ex = supabase.table("quran_progress").select("id")\
+            # Check by user_id (new users)
+            ex_uid = supabase.table("quran_progress").select("id")\
                 .eq("user_id", data.user_id).eq("surah", ay["surah"]).eq("ayah", ay["ayah"]).execute()
-            if not ex.data:
-                supabase.table("quran_progress").insert({
+            # Check by telegram_id (legacy users)
+            ex_tid = []
+            if telegram_id:
+                ex_t = supabase.table("quran_progress").select("id")\
+                    .eq("telegram_id", telegram_id).eq("surah", ay["surah"]).eq("ayah", ay["ayah"]).execute()
+                ex_tid = ex_t.data or []
+
+            if not ex_uid.data and not ex_tid:
+                insert_row: dict = {
                     "user_id": data.user_id,
                     "surah": ay["surah"],
                     "ayah": ay["ayah"],
@@ -2939,7 +2982,10 @@ async def hifz_complete_lesson(data: HifzLessonComplete):
                     "status": "learned",
                     "week_learned": 1,
                     "created_at": now,
-                }).execute()
+                }
+                if telegram_id:
+                    insert_row["telegram_id"] = telegram_id
+                supabase.table("quran_progress").insert(insert_row).execute()
                 points += 10
 
         r = supabase.table("quran_program").select("*").eq("user_id", data.user_id).execute()

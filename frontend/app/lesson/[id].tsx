@@ -117,7 +117,7 @@ export default function LessonDetailScreen() {
         await fetch(`${API_URL}/api/quiz/submit`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: user.id, video_id: id, score }),
+          body: JSON.stringify({ user_id: user.id, video_id: id, score, total: quizTasks.length || 10 }),
         });
       } catch (e) {
         console.warn('Quiz submit error:', e);

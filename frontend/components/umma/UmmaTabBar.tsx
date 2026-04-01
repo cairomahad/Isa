@@ -79,13 +79,13 @@ function TabItem({
   );
 }
 
+const VISIBLE = new Set(['index', 'lessons', 'umma', 'zikr', 'settings']);
+
 export default function UmmaTabBar({ state, descriptors, navigation }: any) {
   const Colors = useColors();
   const insets = useSafeAreaInsets();
 
-  const visibleRoutes = state.routes.filter(
-    (route: any) => descriptors[route.key].options.href !== null
-  );
+  const visibleRoutes = state.routes.filter((route: any) => VISIBLE.has(route.name));
 
   return (
     <View
